@@ -1,0 +1,23 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.dll
+*.exe
+*.pdb
+
+# AVEVA 어셈블리는 절대 커밋하지 않음 (라이선스 제품)
+Aveva.*.dll
+PMLNet.dll
+e3d.dll
+core*.dll
+
+# 추출/임시
+_e3d_pdf_text.txt
+*.tmp
+
+# gstack browse 세션 산출물
+.gstack/

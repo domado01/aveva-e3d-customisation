@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget> <!-- E3D 비트수와 일치 -->
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>E3dLeafWeb.Addin</AssemblyName>
+    <RootNamespace>E3dLeafWeb.Addin</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\Program Files (x86)\AVEVA\Everything3D2.10\</AvevaBinDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- CAF (Common Application Framework) — Addin 인터페이스 -->
+    <Reference Include="Aveva.ApplicationFramework">
+      <HintPath>$(AvevaBinDir)Aveva.ApplicationFramework.dll</HintPath><Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\E3dLeafCore\E3dLeafCore.csproj" />
+  </ItemGroup>
+
+</Project>

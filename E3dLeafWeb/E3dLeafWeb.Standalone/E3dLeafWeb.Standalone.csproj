@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget> <!-- E3D 비트수와 일치 (매뉴얼 x86; 64bit E3D면 x64) -->
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>E3dLeafWeb.Standalone</AssemblyName>
+    <RootNamespace>E3dLeafWeb.Standalone</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Configuration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\E3dLeafCore\E3dLeafCore.csproj" />
+  </ItemGroup>
+
+</Project>

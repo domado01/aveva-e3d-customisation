@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>E3dLeafCore</AssemblyName>
+    <RootNamespace>E3dLeafCore</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <!-- AVEVA E3D/Marine 설치 bin 경로 (빌드 PC에서 수정하거나 /p:AvevaBinDir="경로\") -->
+  <PropertyGroup>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\Program Files (x86)\AVEVA\Everything3D2.10\</AvevaBinDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- .NET Framework GAC 참조 -->
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AVEVA 참조 (런타임은 E3D 폴더에서 로드되므로 복사 안 함) -->
+    <Reference Include="Aveva.Core.Database">
+      <HintPath>$(AvevaBinDir)Aveva.Core.Database.dll</HintPath><Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Core.Database.Filters">
+      <HintPath>$(AvevaBinDir)Aveva.Core.Database.Filters.dll</HintPath><Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Core.Utilities">
+      <HintPath>$(AvevaBinDir)Aveva.Core.Utilities.dll</HintPath><Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.E3D.Standalone">
+      <HintPath>$(AvevaBinDir)Aveva.E3D.Standalone.dll</HintPath><Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 웹 UI(HTML)를 어셈블리에 임베드 -->
+    <EmbeddedResource Include="webui.html">
+      <LogicalName>E3dLeafCore.webui.html</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

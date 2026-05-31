@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <!-- AVEVA E3D 3.1 .Net 매뉴얼은 x86(32bit) 빌드를 사용합니다.
+         설치된 E3D 가 64bit 라면 x64 로 변경하세요. (E3D 비트수와 반드시 일치) -->
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>E3dLeafExport</AssemblyName>
+    <RootNamespace>E3dLeafExport</RootNamespace>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <!-- AVEVA 어셈블리는 런타임에 E3D 설치 폴더에서 로드되므로 복사하지 않습니다.
+         (실행 시에는 모든 AVEVA dll 이 있는 폴더에서 exe 를 실행해야 함 — README 참고) -->
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- ======================================================================
+       AVEVA E3D 설치 bin 경로.
+       빌드 PC(E3D 설치본)에 맞게 아래 기본값을 수정하거나,
+       빌드 시 /p:AvevaBinDir="경로\" 로 덮어쓰세요. 끝에 역슬래시(\) 포함.
+       예) "C:\Program Files (x86)\AVEVA\Everything3D2.10\"
+       또는 교육용: "C:\AVEVA\Plant\E3D3.1\"
+       ====================================================================== -->
+  <PropertyGroup>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\Program Files (x86)\AVEVA\Everything3D2.10\</AvevaBinDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Aveva.Core.Database">
+      <HintPath>$(AvevaBinDir)Aveva.Core.Database.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Core.Database.Filters">
+      <HintPath>$(AvevaBinDir)Aveva.Core.Database.Filters.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Core.Utilities">
+      <HintPath>$(AvevaBinDir)Aveva.Core.Utilities.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.E3D.Standalone">
+      <HintPath>$(AvevaBinDir)Aveva.E3D.Standalone.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
