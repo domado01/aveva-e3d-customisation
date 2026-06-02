@@ -50,7 +50,7 @@ cd aveva-e3d-customisation
 ```
 aveva-e3d-customisation/
 ├─ README.md
-├─ USAGE_사용법.md                ← 이 문서
+├─ USAGE.md                       ← 이 문서 (사용 설명서)
 ├─ E3dLeafExport/                 ← 콘솔판
 │   ├─ E3dLeafExport/             (실제 프로그램: Program.cs, App.config, csproj)
 │   ├─ E3dLeafExport.Demo/        (net10 콘솔 데모 — AVEVA 불필요)

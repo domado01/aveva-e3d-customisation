@@ -3,6 +3,8 @@
 AVEVA™ E3D Design / Marine 의 .NET(C#) 커스터마이징 프로그램 모음.
 모델 데이터베이스에서 **제일 하위 단위(leaf) 요소의 이름과 참조값(Ref)** 을 추출하는 도구로 시작합니다.
 
+> 📖 자세한 사용법은 **[USAGE.md](USAGE.md)** 참고.
+
 > ⚠️ **빌드·실행에는 AVEVA E3D/Marine 설치가 필요합니다.** 참조하는 `Aveva.Core.Database.dll`,
 > `Aveva.E3D.Standalone.dll` 등은 제품에 포함되는 라이선스 어셈블리로, 이 저장소에는 포함되지 않습니다.
 > 각 프로젝트의 `AvevaBinDir` 를 설치 폴더로 지정해 빌드하세요.
