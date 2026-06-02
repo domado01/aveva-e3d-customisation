@@ -1,0 +1,15 @@
+<Project>
+  <!-- ======================================================================
+       ★★★ 여기 한 줄만 고치면 됩니다 ★★★
+       아래 따옴표 뒤의 경로를, AVEVA DLL 들이 모여 있는 폴더로 바꾸세요.
+       (끝에 역슬래시 \ 를 반드시 포함)
+
+       예) <AvevaBinDir ...>C:\Program Files (x86)\AVEVA\Marine12.1.SP6\</AvevaBinDir>
+
+       이 한 곳만 바꾸면 콘솔판/웹판 모든 프로젝트가 이 경로를 사용합니다.
+       (명령줄에서 /p:AvevaBinDir="경로\" 로 줘도 이 값을 덮어씁니다.)
+       ====================================================================== -->
+  <PropertyGroup>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">여기에_AVEVA_DLL_폴더_경로를_넣으세요\</AvevaBinDir>
+  </PropertyGroup>
+</Project>
