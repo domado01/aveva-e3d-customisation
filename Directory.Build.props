@@ -10,6 +10,6 @@
        (명령줄에서 /p:AvevaBinDir="경로\" 로 줘도 이 값을 덮어씁니다.)
        ====================================================================== -->
   <PropertyGroup>
-    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">여기에_AVEVA_DLL_폴더_경로를_넣으세요\</AvevaBinDir>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\Program Files (x86)\AVEVA\Administration1.5.0\</AvevaBinDir>
   </PropertyGroup>
 </Project>
