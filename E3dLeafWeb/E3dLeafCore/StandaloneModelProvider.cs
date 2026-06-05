@@ -27,11 +27,12 @@ namespace E3dLeafCore
         {
             var res = new ExtractResponse { Mode = "standalone", Rows = new List<LeafRow>() };
 
-            if (string.IsNullOrEmpty(req.Project) || string.IsNullOrEmpty(req.User) ||
-                string.IsNullOrEmpty(req.Password) || string.IsNullOrEmpty(req.Mdb))
+            // PASSWORD 는 없을 수 있으므로(비번 없는 프로젝트) 필수 검사에서 제외
+            if (string.IsNullOrEmpty(req.Project) || string.IsNullOrEmpty(req.User) || string.IsNullOrEmpty(req.Mdb))
             {
-                res.Ok = false; res.Error = "PROJECT / USER / PASSWORD / MDB 를 모두 입력하세요."; return res;
+                res.Ok = false; res.Error = "PROJECT / USER / MDB 를 입력하세요. (PASSWORD 는 없으면 비워두세요)"; return res;
             }
+            if (req.Password == null) req.Password = "";
 
             int module = req.ModuleNumber > 0 ? req.ModuleNumber : _defaultModule;
             bool opened = false;

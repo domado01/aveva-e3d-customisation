@@ -66,12 +66,13 @@ namespace E3dLeafExport
             if (args.Length >= 1 && !string.IsNullOrEmpty(args[0])) startElement = args[0];
             if (args.Length >= 2 && !string.IsNullOrEmpty(args[1])) outputFile = args[1];
 
-            if (string.IsNullOrEmpty(project) || string.IsNullOrEmpty(user) ||
-                string.IsNullOrEmpty(password) || string.IsNullOrEmpty(mdb))
+            // PASSWORD 는 없을 수 있으므로(비번 없는 프로젝트) 필수 검사에서 제외
+            if (string.IsNullOrEmpty(project) || string.IsNullOrEmpty(user) || string.IsNullOrEmpty(mdb))
             {
-                Console.Error.WriteLine("[오류] App.config 의 PROJECT / USER / PASSWORD / MDB 값을 먼저 채워주세요.");
+                Console.Error.WriteLine("[오류] App.config 의 PROJECT / USER / MDB 값을 먼저 채워주세요. (PASSWORD 는 없으면 비워두세요)");
                 return 1;
             }
+            if (password == null) password = "";
 
             if (string.IsNullOrEmpty(outputFile))
             {

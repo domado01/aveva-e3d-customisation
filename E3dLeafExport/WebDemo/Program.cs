@@ -42,9 +42,9 @@ app.MapPost("/api/extract", async (HttpRequest req) =>
     if (mode == "standalone")
     {
         if (string.IsNullOrWhiteSpace(r.project) || string.IsNullOrWhiteSpace(r.user) ||
-            string.IsNullOrWhiteSpace(r.password) || string.IsNullOrWhiteSpace(r.mdb))
+            string.IsNullOrWhiteSpace(r.mdb))   // PASSWORD 는 없을 수 있어 제외
         {
-            return Results.Json(new { ok = false, error = "PROJECT / USER / PASSWORD / MDB 를 모두 입력하세요." });
+            return Results.Json(new { ok = false, error = "PROJECT / USER / MDB 를 입력하세요. (PASSWORD 는 없으면 비워두세요)" });
         }
     }
 
