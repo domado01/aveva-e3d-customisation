@@ -25,24 +25,38 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sln  = Join-Path $root "E3dLeafExport.sln"
 
-# --- 1) AVEVA 설치 폴더 자동 탐지 -------------------------------------------
+# --- 1) AVEVA 설치 폴더 결정 ------------------------------------------------
+#     Standalone DLL 후보: Marine(PDMS) / E3D / Core3D
+$stdNames = @("Aveva.Pdms.Standalone.dll","Aveva.E3D.Standalone.dll","Aveva.Core3D.Standalone.dll")
+# (a) Directory.Build.props 의 AvevaBinDir 우선
+if ([string]::IsNullOrWhiteSpace($AvevaBinDir)) {
+    $propsFile = Join-Path $root "..\Directory.Build.props"
+    if (Test-Path $propsFile) {
+        $ml = Select-String -Path $propsFile -Pattern "Condition=[^>]*>([^<>]+)</AvevaBinDir>" | Select-Object -First 1
+        if ($ml) { $cand = $ml.Matches[0].Groups[1].Value.Trim(); if ($cand -and (Test-Path $cand)) { $AvevaBinDir = $cand } }
+    }
+}
+# (b) 표준 위치 자동 탐지
 if ([string]::IsNullOrWhiteSpace($AvevaBinDir)) {
     Write-Host "AVEVA 설치 폴더 탐지 중..." -ForegroundColor Cyan
-    $searchRoots = @("C:\Program Files (x86)\AVEVA","C:\Program Files\AVEVA","C:\AVEVA","D:\AVEVA")
-    foreach ($sr in $searchRoots) {
+    foreach ($sr in @("C:\AVEVA","C:\Program Files (x86)\AVEVA","C:\Program Files\AVEVA","D:\AVEVA")) {
         if (Test-Path $sr) {
-            $hit = Get-ChildItem $sr -Recurse -Filter "Aveva.E3D.Standalone.dll" -ErrorAction SilentlyContinue |
-                   Select-Object -First 1
+            $hit = Get-ChildItem $sr -Recurse -Include $stdNames -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($hit) { $AvevaBinDir = (Split-Path $hit.FullName -Parent) + "\"; break }
         }
     }
 }
-if ([string]::IsNullOrWhiteSpace($AvevaBinDir) -or -not (Test-Path (Join-Path $AvevaBinDir "Aveva.E3D.Standalone.dll"))) {
+$StandaloneDll = $null
+if (-not [string]::IsNullOrWhiteSpace($AvevaBinDir)) {
+    foreach ($n in $stdNames) { $p = Join-Path $AvevaBinDir $n; if (Test-Path $p) { $StandaloneDll = $p; break } }
+}
+if ([string]::IsNullOrWhiteSpace($AvevaBinDir) -or -not $StandaloneDll) {
     Write-Host "[오류] AVEVA 설치 폴더를 찾지 못했습니다." -ForegroundColor Red
-    Write-Host "       -AvevaBinDir 로 Aveva.E3D.Standalone.dll 가 있는 폴더를 직접 지정하세요." -ForegroundColor Red
+    Write-Host "       -AvevaBinDir 로 지정하거나 Directory.Build.props 의 AvevaBinDir 를 확인하세요." -ForegroundColor Red
     exit 1
 }
 Write-Host "AVEVA bin: $AvevaBinDir" -ForegroundColor Green
+Write-Host "Standalone: $(Split-Path $StandaloneDll -Leaf)" -ForegroundColor Green
 
 # --- 2) 비트수 자동 감지 (PE 헤더 읽기) -------------------------------------
 function Get-DllPlatform([string]$dll) {
@@ -54,7 +68,7 @@ function Get-DllPlatform([string]$dll) {
         if ($machine -eq 0x8664) { return "x64" } elseif ($machine -eq 0x14c) { return "x86" } else { return "AnyCPU" }
     } catch { return "x86" }
 }
-$platform = Get-DllPlatform (Join-Path $AvevaBinDir "Aveva.E3D.Standalone.dll")
+$platform = Get-DllPlatform $StandaloneDll
 Write-Host "감지된 비트수: $platform" -ForegroundColor Green
 
 # --- 3) MSBuild 찾기 + 빌드 --------------------------------------------------
