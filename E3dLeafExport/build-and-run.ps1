@@ -81,7 +81,7 @@ if (-not $msbuild) { $msbuild = "MSBuild.exe" }  # PATH 에 있다고 가정
 Write-Host "MSBuild: $msbuild" -ForegroundColor Green
 
 Write-Host "`n빌드 중 (Release / $platform)..." -ForegroundColor Cyan
-& $msbuild $sln /t:Rebuild /p:Configuration=Release /p:Platform=$platform /p:AvevaBinDir="$AvevaBinDir" /v:minimal
+& $msbuild $sln /restore /t:Rebuild /p:Configuration=Release /p:Platform=$platform /p:AvevaBinDir="$AvevaBinDir" /v:minimal
 if ($LASTEXITCODE -ne 0) { Write-Host "[오류] 빌드 실패" -ForegroundColor Red; exit 2 }
 
 # --- 4) exe + config 를 AVEVA 폴더로 복사 -----------------------------------

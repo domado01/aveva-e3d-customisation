@@ -62,7 +62,7 @@ $msbuild = $null
 if (Test-Path $vswhere) { $msbuild = & $vswhere -latest -prerelease -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1 }
 if (-not $msbuild) { $msbuild = "MSBuild.exe" }
 Write-Host "빌드 중 (Release / $platform)..." -ForegroundColor Cyan
-& $msbuild $sln /t:Rebuild /p:Configuration=Release /p:Platform=$platform /p:AvevaBinDir="$AvevaBinDir" /v:minimal
+& $msbuild $sln /restore /t:Rebuild /p:Configuration=Release /p:Platform=$platform /p:AvevaBinDir="$AvevaBinDir" /v:minimal
 if ($LASTEXITCODE -ne 0) { Write-Host "[오류] 빌드 실패" -ForegroundColor Red; exit 2 }
 
 # 4) 산출물 복사 (모든 AVEVA dll 이 있는 폴더에서 실행해야 의존성 해결됨)
