@@ -1,10 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Aveva.Core.Database;
-using Aveva.Core.Database.Filters;
-using Aveva.Core.Utilities;     // PdmsMessage
-using Aveva.E3D.Standalone;     // Standalone
+using Aveva.Pdms.Database;
+using Aveva.Pdms.Database.Filters;
+using Aveva.Pdms.Utilities;     // PdmsMessage
+using Aveva.Pdms.Standalone;    // Standalone
 
 namespace E3dLeafCore
 {

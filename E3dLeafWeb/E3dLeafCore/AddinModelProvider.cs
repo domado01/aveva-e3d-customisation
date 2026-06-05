@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Aveva.Core.Database;     // DbElement, CurrentElement
+using Aveva.Pdms.Database;     // DbElement
+using Aveva.Pdms.Shared;       // CurrentElement (PDMS는 Shared 에 위치)
 
 namespace E3dLeafCore
 {

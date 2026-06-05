@@ -6,23 +6,23 @@ using System.IO;
 using System.Text;
 
 // ============================================================================
-//  AVEVA E3D Design (.NET) — Standalone Leaf Export
-//  TG1031-CC3-C01 ".Net Customisation" 매뉴얼 기반
+//  AVEVA Marine (PDMS, OH12.1) (.NET) — Standalone Leaf Export
+//  TG1031-CC3-C01 ".Net Customisation" 매뉴얼 기반 (Marine PDMS API 로 포팅)
 //
-//  필요 어셈블리 (E3D 설치 폴더에서 참조):
-//    - Aveva.Core.Database.dll          (DbElement, DbElementType, DbAttributeInstance, Project)
-//    - Aveva.Core.Database.Filters.dll  (TypeFilter, DBElementCollection, DbElementTypeInstance)
-//    - Aveva.Core.Utilities.dll         (PdmsMessage)
-//    - Aveva.E3D.Standalone.dll         (Standalone: Start / Open / Finish)
+//  필요 어셈블리 (Marine 설치 폴더 C:\AVEVA\Marine\OH12.1.SP5 에서 참조):
+//    - Aveva.Pdms.Database.dll      (DbElement, DbElementType, DbAttributeInstance,
+//                                     DbElementTypeInstance, TypeFilter, DBElementCollection, Project)
+//    - Aveva.Pdms.Utilities.dll     (PdmsMessage)
+//    - Aveva.Pdms.Standalone.dll    (Standalone: Start / Open / Finish)
 //
-//  ※ 아래 using 네임스페이스가 설치된 SDK 버전과 미세하게 다를 수 있습니다.
-//    Visual Studio에서 빨간 줄이 보이면 해당 타입에 커서를 두고
-//    [빠른 작업(Ctrl+.)] → using 추가로 자동 해결하세요.
+//  ※ 아래 using 네임스페이스가 설치 버전과 다르면(예: PdmsMessage 가
+//    Aveva.Pdms.Utilities.Messages 에 있는 경우 등) Visual Studio 에서 해당
+//    타입에 커서 → [빠른 작업(Ctrl+.)] → using 추가로 자동 해결하세요.
 // ============================================================================
-using Aveva.Core.Database;
-using Aveva.Core.Database.Filters;
-using Aveva.Core.Utilities;      // PdmsMessage
-using Aveva.E3D.Standalone;      // Standalone
+using Aveva.Pdms.Database;
+using Aveva.Pdms.Database.Filters;
+using Aveva.Pdms.Utilities;      // PdmsMessage
+using Aveva.Pdms.Standalone;     // Standalone
 
 namespace E3dLeafExport
 {

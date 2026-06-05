@@ -20,18 +20,22 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- AVEVA 참조 (런타임은 E3D 폴더에서 로드되므로 복사 안 함) -->
-    <Reference Include="Aveva.Core.Database">
-      <HintPath>$(AvevaBinDir)Aveva.Core.Database.dll</HintPath><Private>false</Private>
+    <!-- AVEVA Marine (PDMS 계열, OH12.1) 참조. 런타임은 Marine 폴더에서 로드되므로 복사 안 함.
+         Filters/Shared DLL 이 없는 설치도 있어 Exists 조건으로 안전 처리. -->
+    <Reference Include="Aveva.Pdms.Database">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Database.dll</HintPath><Private>false</Private>
     </Reference>
-    <Reference Include="Aveva.Core.Database.Filters">
-      <HintPath>$(AvevaBinDir)Aveva.Core.Database.Filters.dll</HintPath><Private>false</Private>
+    <Reference Include="Aveva.Pdms.Database.Filters" Condition="Exists('$(AvevaBinDir)Aveva.Pdms.Database.Filters.dll')">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Database.Filters.dll</HintPath><Private>false</Private>
     </Reference>
-    <Reference Include="Aveva.Core.Utilities">
-      <HintPath>$(AvevaBinDir)Aveva.Core.Utilities.dll</HintPath><Private>false</Private>
+    <Reference Include="Aveva.Pdms.Shared" Condition="Exists('$(AvevaBinDir)Aveva.Pdms.Shared.dll')">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Shared.dll</HintPath><Private>false</Private>
     </Reference>
-    <Reference Include="Aveva.E3D.Standalone">
-      <HintPath>$(AvevaBinDir)Aveva.E3D.Standalone.dll</HintPath><Private>false</Private>
+    <Reference Include="Aveva.Pdms.Utilities">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Utilities.dll</HintPath><Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Pdms.Standalone">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Standalone.dll</HintPath><Private>false</Private>
     </Reference>
   </ItemGroup>
 
