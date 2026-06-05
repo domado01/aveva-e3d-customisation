@@ -26,6 +26,11 @@
     <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\Program Files (x86)\AVEVA\Everything3D2.10\</AvevaBinDir>
   </PropertyGroup>
 
+  <!-- .NET Framework GAC 참조 (ConfigurationManager 등) -->
+  <ItemGroup>
+    <Reference Include="System.Configuration" />
+  </ItemGroup>
+
   <!-- AVEVA Marine (PDMS 계열, OH12.1) 어셈블리 참조.
        별도 Filters DLL 이 없는 설치도 있어 Exists 조건으로 안전 처리. -->
   <ItemGroup>
