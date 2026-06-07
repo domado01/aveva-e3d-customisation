@@ -19,9 +19,10 @@ using System.Text;
 //    Aveva.Pdms.Utilities.Messages 에 있는 경우 등) Visual Studio 에서 해당
 //    타입에 커서 → [빠른 작업(Ctrl+.)] → using 추가로 자동 해결하세요.
 // ============================================================================
-using Aveva.Pdms.Database;       // DbElement, TypeFilter, DBElementCollection, DbElementTypeInstance 포함
-using Aveva.Pdms.Utilities;      // PdmsMessage
-using Aveva.Pdms.Standalone;     // Standalone
+using Aveva.Pdms.Database;              // DbElement, DbElementType, DbAttributeInstance, DbElementTypeInstance, Project
+using Aveva.PDMS.Database.Filters;      // TypeFilter, DBElementCollection  (주의: 대문자 PDMS)
+using Aveva.Pdms.Utilities.Messaging;   // PdmsMessage
+using Aveva.PDMS.Standalone;            // Standalone  (대문자 PDMS — 미확정 시 check-types.cmd 로 확인)
 
 namespace E3dLeafExport
 {

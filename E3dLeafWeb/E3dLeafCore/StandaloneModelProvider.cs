@@ -1,9 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Aveva.Pdms.Database;      // DbElement, TypeFilter, DBElementCollection, DbElementTypeInstance 포함
-using Aveva.Pdms.Utilities;     // PdmsMessage
-using Aveva.Pdms.Standalone;    // Standalone
+using Aveva.Pdms.Database;             // DbElement, DbElementType, DbAttributeInstance, DbElementTypeInstance, Project
+using Aveva.PDMS.Database.Filters;     // TypeFilter, DBElementCollection  (주의: 대문자 PDMS)
+using Aveva.Pdms.Utilities.Messaging;  // PdmsMessage
+using Aveva.PDMS.Standalone;           // Standalone  (대문자 PDMS — 미확정 시 check-types.cmd 로 확인)
 
 namespace E3dLeafCore
 {
