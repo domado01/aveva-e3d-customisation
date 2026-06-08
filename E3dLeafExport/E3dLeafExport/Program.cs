@@ -19,10 +19,9 @@ using System.Text;
 //    Aveva.Pdms.Utilities.Messages 에 있는 경우 등) Visual Studio 에서 해당
 //    타입에 커서 → [빠른 작업(Ctrl+.)] → using 추가로 자동 해결하세요.
 // ============================================================================
-using Aveva.Pdms.Database;              // DbElement, DbElementType, DbAttributeInstance, DbElementTypeInstance, Project
-using Aveva.PDMS.Database.Filters;      // TypeFilter, DBElementCollection  (주의: 대문자 PDMS)
-using Aveva.Pdms.Utilities.Messaging;   // PdmsMessage
-using Aveva.PDMS.Standalone;            // Standalone  (대문자 PDMS — 미확정 시 check-types.cmd 로 확인)
+using Aveva.Pdms.Database;              // DbElement, DbElementType, DbAttributeInstance, Project (확인됨)
+using Aveva.Pdms.Utilities.Messaging;   // PdmsMessage (확인됨)
+using Aveva.Pdms.Standalone;            // Standalone  ← 네임스페이스 미확정. check-types.cmd 결과로 이 한 줄만 맞추면 됨
 
 namespace E3dLeafExport
 {
@@ -109,34 +108,26 @@ namespace E3dLeafExport
                 Console.WriteLine("프로젝트 열기 성공.");
 
                 // ------------------------------------------------------------
-                // 4) 탐색 시작점 결정
-                //    - START_ELEMENT 가 지정되면 그 요소부터,
-                //    - 비어 있으면 MDB 안의 모든 SITE 부터 탐색.
+                // 4) 탐색 시작점 결정 (START_ELEMENT 필수)
+                //    필터/컬렉션 API 대신 시작 요소부터 Members() 재귀로 leaf 수집.
+                //    leaf-settings.config 의 START_ELEMENT 에 SITE/ZONE 등 요소 이름 지정.
                 // ------------------------------------------------------------
-                List<DbElement> roots = new List<DbElement>();
+                if (string.IsNullOrEmpty(startElement))
+                {
+                    Console.Error.WriteLine("[오류] START_ELEMENT 를 지정하세요. leaf-settings.config 의 START_ELEMENT 에");
+                    Console.Error.WriteLine("       탐색 시작 요소 이름(예: /SITE-... 또는 ZONE 이름)을 넣으세요.");
+                    return 4;
+                }
 
-                if (!string.IsNullOrEmpty(startElement))
+                List<DbElement> roots = new List<DbElement>();
+                DbElement start = DbElement.GetElement(startElement);
+                if (start == null || !start.IsValid)
                 {
-                    DbElement start = DbElement.GetElement(startElement);
-                    if (start == null || !start.IsValid)
-                    {
-                        Console.Error.WriteLine("[오류] 시작 요소를 찾을 수 없습니다: {0}", startElement);
-                        return 3;
-                    }
-                    roots.Add(start);
-                    Console.WriteLine("시작 요소: {0}", startElement);
+                    Console.Error.WriteLine("[오류] 시작 요소를 찾을 수 없습니다: {0}", startElement);
+                    return 3;
                 }
-                else
-                {
-                    // 열린 설계 DB 전체에서 SITE 수집 (root 없는 필터 컬렉션)
-                    TypeFilter siteFilter = new TypeFilter(DbElementTypeInstance.SITE);
-                    DBElementCollection siteCol = new DBElementCollection(siteFilter);
-                    foreach (DbElement site in siteCol)
-                    {
-                        if (site != null && site.IsValid) roots.Add(site);
-                    }
-                    Console.WriteLine("SITE {0} 개에서 탐색을 시작합니다.", roots.Count);
-                }
+                roots.Add(start);
+                Console.WriteLine("시작 요소: {0}", startElement);
 
                 if (roots.Count == 0)
                 {

@@ -1,10 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Aveva.Pdms.Database;             // DbElement, DbElementType, DbAttributeInstance, DbElementTypeInstance, Project
-using Aveva.PDMS.Database.Filters;     // TypeFilter, DBElementCollection  (주의: 대문자 PDMS)
-using Aveva.Pdms.Utilities.Messaging;  // PdmsMessage
-using Aveva.PDMS.Standalone;           // Standalone  (대문자 PDMS — 미확정 시 check-types.cmd 로 확인)
+using Aveva.Pdms.Database;             // DbElement, DbElementType, DbAttributeInstance, Project (확인됨)
+using Aveva.Pdms.Utilities.Messaging;  // PdmsMessage (확인됨)
+using Aveva.Pdms.Standalone;           // Standalone  ← 네임스페이스 미확정. check-types.cmd 결과로 이 한 줄만 맞추면 됨
 
 namespace E3dLeafCore
 {
@@ -48,21 +47,18 @@ namespace E3dLeafCore
                 }
                 opened = true;
 
+                // START_ELEMENT 필수 (필터/컬렉션 API 미사용 — 시작 요소부터 Members() 재귀)
+                if (string.IsNullOrEmpty(req.StartElement))
+                {
+                    res.Ok = false; res.Error = "시작 요소(START ELEMENT)를 입력하세요. (예: /SITE-... 또는 ZONE 이름)"; return res;
+                }
                 var roots = new List<DbElement>();
-                if (!string.IsNullOrEmpty(req.StartElement))
+                DbElement s = DbElement.GetElement(req.StartElement);
+                if (s == null || !s.IsValid)
                 {
-                    DbElement s = DbElement.GetElement(req.StartElement);
-                    if (s == null || !s.IsValid)
-                    {
-                        res.Ok = false; res.Error = "시작 요소를 찾을 수 없습니다: " + req.StartElement; return res;
-                    }
-                    roots.Add(s);
+                    res.Ok = false; res.Error = "시작 요소를 찾을 수 없습니다: " + req.StartElement; return res;
                 }
-                else
-                {
-                    foreach (DbElement site in new DBElementCollection(new TypeFilter(DbElementTypeInstance.SITE)))
-                        if (site != null && site.IsValid) roots.Add(site);
-                }
+                roots.Add(s);
 
                 foreach (DbElement r in roots) LeafCollector.Collect(r, res.Rows);
                 res.Count = res.Rows.Count;
