@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using Aveva.Pdms.Database;             // DbElement, DbElementType, DbAttributeInstance, Project
 using Aveva.Pdms.Standalone;           // PdmsStandalone (Start/Open/Finish)
 
@@ -36,7 +37,7 @@ namespace E3dLeafCore
             bool opened = false;
             try
             {
-                if (!_started) { PdmsStandalone.Start(module, _env); _started = true; }
+                if (!_started) { SetupPdmsEnvironment(_env); PdmsStandalone.Start(module, _env); _started = true; }
 
                 // PdmsStandalone.Open(sProject, sUser, sPass, sMdbName) -> bool
                 if (!PdmsStandalone.Open(req.Project, req.User, req.Password, req.Mdb))
@@ -79,5 +80,23 @@ namespace E3dLeafCore
             try { if (_started) PdmsStandalone.Finish(); } catch { }
         }
 
+        /// <summary>PDMS 데이터 파일(attlib.dat 등)을 찾도록 PDMSEXE 등 환경변수를 보정.</summary>
+        private static void SetupPdmsEnvironment(Hashtable env)
+        {
+            string exeDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+            string pdmsExe = exeDir;
+            try
+            {
+                if (!File.Exists(Path.Combine(exeDir, "attlib.dat")))
+                {
+                    string[] hits = Directory.GetFiles(exeDir, "attlib.dat", SearchOption.AllDirectories);
+                    if (hits.Length > 0) pdmsExe = Path.GetDirectoryName(hits[0]);
+                }
+            }
+            catch { }
+            Environment.SetEnvironmentVariable("PDMSEXE", pdmsExe); env["PDMSEXE"] = pdmsExe;
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PDMSUI")) && !env.ContainsKey("PDMSUI")) { Environment.SetEnvironmentVariable("PDMSUI", exeDir); env["PDMSUI"] = exeDir; }
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PDMSWK")) && !env.ContainsKey("PDMSWK")) { Environment.SetEnvironmentVariable("PDMSWK", exeDir); env["PDMSWK"] = exeDir; }
+        }
     }
 }

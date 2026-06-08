@@ -85,8 +85,11 @@ namespace E3dLeafExport
             try
             {
                 // ------------------------------------------------------------
-                // 2) Standalone 세션 시작 (Model 모듈)
+                // 2) PDMS 환경변수 보정 후 Standalone 세션 시작
+                //    PDMS 는 %PDMSEXE% 로 attlib.dat 등 데이터 파일을 찾는다.
+                //    AVEVA 런처 없이 직접 실행하므로 설치 폴더(=exe 위치)로 설정해 준다.
                 // ------------------------------------------------------------
+                SetupPdmsEnvironment(env);
                 Console.WriteLine("Standalone 세션 시작 (module {0}) ...", moduleNumber);
                 PdmsStandalone.Start(moduleNumber, env);
                 sessionStarted = true;
@@ -262,6 +265,49 @@ namespace E3dLeafExport
                     sw.WriteLine(r.Type + "\t" + r.Name + "\t" + r.Reference);
                 }
             }
+        }
+
+        // ---- PDMS 환경 -------------------------------------------------------
+
+        /// <summary>
+        /// PDMS 데이터 파일(attlib.dat 등)을 찾도록 PDMSEXE 등 환경변수를 보정.
+        /// AVEVA 런처 없이 직접 실행할 때 필요. exe 폴더(=설치 bin)에서 attlib.dat 를 찾아 PDMSEXE 로 설정.
+        /// </summary>
+        private static void SetupPdmsEnvironment(Hashtable env)
+        {
+            string exeDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+
+            // attlib.dat 가 있는 폴더 찾기 (exe 폴더 우선, 없으면 하위 검색)
+            string pdmsExe = exeDir;
+            try
+            {
+                if (!File.Exists(Path.Combine(exeDir, "attlib.dat")))
+                {
+                    string[] hits = Directory.GetFiles(exeDir, "attlib.dat", SearchOption.AllDirectories);
+                    if (hits.Length > 0) pdmsExe = Path.GetDirectoryName(hits[0]);
+                }
+            }
+            catch { }
+
+            SetEnv(env, "PDMSEXE", pdmsExe);
+            SetEnvIfMissing(env, "PDMSUI", exeDir);
+            SetEnvIfMissing(env, "PDMSWK", exeDir);
+
+            Console.WriteLine("PDMSEXE = {0}", pdmsExe);
+            if (!File.Exists(Path.Combine(pdmsExe, "attlib.dat")))
+                Console.Error.WriteLine("[경고] attlib.dat 를 못 찾았습니다. PDMSEXE 경로를 확인하세요.");
+        }
+
+        private static void SetEnv(Hashtable env, string key, string val)
+        {
+            Environment.SetEnvironmentVariable(key, val);
+            env[key] = val;
+        }
+
+        private static void SetEnvIfMissing(Hashtable env, string key, string val)
+        {
+            bool hasProc = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key));
+            if (!hasProc && !env.ContainsKey(key)) SetEnv(env, key, val);
         }
 
         // ---- 설정 헬퍼 --------------------------------------------------------
