@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget> <!-- Marine OH12.1 = x86 -->
+    <LangVersion>7.3</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>E3dLeafForm</AssemblyName>
+    <RootNamespace>E3dLeafForm</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Configuration" />
+  </ItemGroup>
+
+  <!-- AVEVA Marine(PDMS) 참조. AvevaBinDir 은 루트 Directory.Build.props 에서. -->
+  <ItemGroup>
+    <Reference Include="Aveva.Pdms.Database">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Database.dll</HintPath><Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Pdms.Standalone">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Standalone.dll</HintPath><Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- 공용 설정 파일을 빌드 출력(exe 옆)으로 복사 -->
+  <ItemGroup>
+    <None Include="..\..\leaf-settings.config" Link="leaf-settings.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
