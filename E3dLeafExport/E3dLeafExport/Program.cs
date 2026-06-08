@@ -48,7 +48,7 @@ namespace E3dLeafExport
             // ----------------------------------------------------------------
             // 1) 설정 읽기 (App.config / 커맨드라인)
             //    - App.config 의 모든 appSettings 를 Hashtable(env) 로 적재해
-            //      Standalone.Start 에 그대로 전달한다(매뉴얼 ConfigHelper 와 동일 방식).
+            //      PdmsStandalone.Start 에 그대로 전달한다(매뉴얼 ConfigHelper 와 동일 방식).
             // ----------------------------------------------------------------
             Hashtable env = ReadAppSettingsToHashtable();
 
@@ -89,7 +89,7 @@ namespace E3dLeafExport
                 // 2) Standalone 세션 시작 (Model 모듈)
                 // ------------------------------------------------------------
                 Console.WriteLine("Standalone 세션 시작 (module {0}) ...", moduleNumber);
-                Standalone.Start(moduleNumber, env);
+                PdmsStandalone.Start(moduleNumber, env);
                 sessionStarted = true;
 
                 // ------------------------------------------------------------
@@ -97,7 +97,7 @@ namespace E3dLeafExport
                 // ------------------------------------------------------------
                 Console.WriteLine("프로젝트 열기: {0} / MDB {1} (user {2}) ...", project, mdb, user);
                 PdmsMessage error;
-                bool ok = Standalone.Open(project, user, password, mdb, out error);
+                bool ok = PdmsStandalone.Open(project, user, password, mdb, out error);
                 if (!ok)
                 {
                     int? num = (error != null) ? error.MessageNumber : (int?)null;
@@ -162,7 +162,7 @@ namespace E3dLeafExport
             {
                 // ------------------------------------------------------------
                 // 7) 정리: 프로젝트 닫기 → 세션 종료
-                //    (Standalone.Finish 는 열린 프로젝트를 자동으로 닫지 않으므로
+                //    (PdmsStandalone.Finish 는 열린 프로젝트를 자동으로 닫지 않으므로
                 //     반드시 Project.CurrentProject.Close() 를 먼저 호출)
                 // ------------------------------------------------------------
                 try
@@ -174,7 +174,7 @@ namespace E3dLeafExport
 
                 try
                 {
-                    if (sessionStarted) Standalone.Finish();
+                    if (sessionStarted) PdmsStandalone.Finish();
                 }
                 catch (Exception ex) { Console.Error.WriteLine("[정리:Finish] " + ex.Message); }
             }

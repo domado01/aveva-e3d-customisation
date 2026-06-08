@@ -37,10 +37,10 @@ namespace E3dLeafCore
             bool opened = false;
             try
             {
-                if (!_started) { Standalone.Start(module, _env); _started = true; }
+                if (!_started) { PdmsStandalone.Start(module, _env); _started = true; }
 
                 PdmsMessage error;
-                if (!Standalone.Open(req.Project, req.User, req.Password, req.Mdb, out error))
+                if (!PdmsStandalone.Open(req.Project, req.User, req.Password, req.Mdb, out error))
                 {
                     int? n = (error != null) ? error.MessageNumber : (int?)null;
                     res.Ok = false; res.Error = "프로젝트 로그인 실패. 메시지 번호: " + n; return res;
@@ -69,7 +69,7 @@ namespace E3dLeafCore
             catch (Exception ex) { res.Ok = false; res.Error = ex.Message; return res; }
             finally
             {
-                // 요청마다 프로젝트는 닫되, 세션(Standalone.Finish)은 프로세스 종료 시 1회만.
+                // 요청마다 프로젝트는 닫되, 세션(PdmsStandalone.Finish)은 프로세스 종료 시 1회만.
                 try { if (opened && Project.CurrentProject != null) Project.CurrentProject.Close(); }
                 catch { }
             }
@@ -78,7 +78,7 @@ namespace E3dLeafCore
         /// <summary>프로세스 종료 시 호출 — Standalone 세션 종료.</summary>
         public void Shutdown()
         {
-            try { if (_started) Standalone.Finish(); } catch { }
+            try { if (_started) PdmsStandalone.Finish(); } catch { }
         }
     }
 }
