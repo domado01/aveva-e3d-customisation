@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <!-- AVEVA Marine OH12.1 = x86. PDMS 프로세스 환경을 읽으려면 동일 비트(32bit) 필수. -->
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>E3dLeafCli</AssemblyName>
+    <RootNamespace>E3dLeafCli</RootNamespace>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- AVEVA 설치 bin. repo 루트 Directory.Build.props 가 Marine 경로를 주입.
+       빌드시 /p:AvevaBinDir="경로\" 로 덮어쓸 수 있음 (끝에 \ 포함). -->
+  <PropertyGroup>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\AVEVA\Marine\OH12.1.SP5\</AvevaBinDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Aveva.Pdms.Database">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Database.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Pdms.Standalone">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Standalone.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
