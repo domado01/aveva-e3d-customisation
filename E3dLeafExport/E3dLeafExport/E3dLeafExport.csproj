@@ -52,4 +52,11 @@
     </Reference>
   </ItemGroup>
 
+  <!-- 공용 설정 파일을 빌드 출력(exe 옆)으로 복사 -->
+  <ItemGroup>
+    <None Include="..\..\leaf-settings.config" Link="leaf-settings.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

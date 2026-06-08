@@ -39,9 +39,9 @@ foreach ($dll in (Get-ChildItem $bin -Filter "Aveva*.dll" -ErrorAction SilentlyC
         foreach ($h in $mr.TypeDefinitions) {
           $td = $mr.GetTypeDefinition($h)
           $name = $mr.GetString($td.Name)
-          if ($wanted -contains $name) {
+          if ($wanted -contains $name -or $name -match "Filter$|Collection$|^Standalone") {
             $ns = $mr.GetString($td.Namespace)
-            $out.Add(("{0,-22} ns={1,-34} dll={2}" -f $name, $ns, $dll.Name))
+            $out.Add(("{0,-24} ns={1,-36} dll={2}" -f $name, $ns, $dll.Name))
           }
         }
       }
@@ -54,7 +54,7 @@ foreach ($dll in (Get-ChildItem $bin -Filter "Aveva*.dll" -ErrorAction SilentlyC
     try {
       $asm = [Reflection.Assembly]::LoadFrom($dll.FullName)
       try { $ts = $asm.GetTypes() } catch { $ts = $_.Exception.Types | Where-Object { $_ } }
-      foreach ($t in $ts) { if ($t -and ($wanted -contains $t.Name)) { $out.Add(("{0,-22} ns={1,-34} dll={2}" -f $t.Name, $t.Namespace, $dll.Name)) } }
+      foreach ($t in $ts) { if ($t -and ($wanted -contains $t.Name -or $t.Name -match "Filter$|Collection$|^Standalone")) { $out.Add(("{0,-24} ns={1,-36} dll={2}" -f $t.Name, $t.Namespace, $dll.Name)) } }
     } catch { $errCount++ }
   }
 }

@@ -94,8 +94,10 @@ if (-not (Test-Path $exe)) { Write-Host "[오류] 빌드 산출물 없음: $exe"
 $runExe = Join-Path $AvevaBinDir "E3dLeafExport.exe"
 Copy-Item $exe $runExe -Force
 if (Test-Path $cfg) { Copy-Item $cfg (Join-Path $AvevaBinDir "E3dLeafExport.exe.config") -Force }
+$settings = Join-Path $outDir "leaf-settings.config"
+if (Test-Path $settings) { Copy-Item $settings (Join-Path $AvevaBinDir "leaf-settings.config") -Force }
 Write-Host "복사 완료 → $runExe" -ForegroundColor Green
-Write-Host "  (※ App.config 값은 위 .config 에서 최종 확인/수정하세요)" -ForegroundColor Yellow
+Write-Host "  (※ 설정값은 leaf-settings.config 에서 수정하세요)" -ForegroundColor Yellow
 
 # --- 5) 실행 ----------------------------------------------------------------
 if ($NoRun) { Write-Host "`n-NoRun 지정: 실행 생략." -ForegroundColor Yellow; exit 0 }

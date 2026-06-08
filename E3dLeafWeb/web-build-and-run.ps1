@@ -68,7 +68,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host "[오류] 빌드 실패" -ForegroundColor 
 # 4) 산출물 복사 (모든 AVEVA dll 이 있는 폴더에서 실행해야 의존성 해결됨)
 $outDir = Join-Path $root "E3dLeafWeb.Standalone\bin\$platform\Release\net48"
 if (-not (Test-Path $outDir)) { $outDir = Join-Path $root "E3dLeafWeb.Standalone\bin\$platform\Release" }
-foreach($f in @("E3dLeafWeb.Standalone.exe","E3dLeafWeb.Standalone.exe.config","E3dLeafCore.dll")){
+foreach($f in @("E3dLeafWeb.Standalone.exe","E3dLeafWeb.Standalone.exe.config","E3dLeafCore.dll","leaf-settings.config")){
   $src = Join-Path $outDir $f
   if (Test-Path $src) { Copy-Item $src (Join-Path $AvevaBinDir $f) -Force }
 }
