@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+using System.Reflection;
 using System.Text;
 
 // ============================================================================
@@ -96,12 +97,11 @@ namespace E3dLeafExport
                 // 3) 프로젝트 + MDB 열기 (로그인)
                 // ------------------------------------------------------------
                 Console.WriteLine("프로젝트 열기: {0} / MDB {1} (user {2}) ...", project, mdb, user);
-                PdmsMessage error;
-                bool ok = PdmsStandalone.Open(project, user, password, mdb, out error);
+                string openErr;
+                bool ok = OpenSession(project, user, password, mdb, out openErr);
                 if (!ok)
                 {
-                    int? num = (error != null) ? error.MessageNumber : (int?)null;
-                    Console.Error.WriteLine("[오류] 프로젝트 로그인 실패. 메시지 번호: {0}", num);
+                    Console.Error.WriteLine("[오류] 프로젝트 로그인 실패. {0}", openErr);
                     return 2;
                 }
                 projectOpened = true;
@@ -264,6 +264,42 @@ namespace E3dLeafExport
                     sw.WriteLine(r.Type + "\t" + r.Name + "\t" + r.Reference);
                 }
             }
+        }
+
+        /// <summary>
+        /// PdmsStandalone.Open 을 리플렉션으로 호출. 버전마다 인수 개수/형이 달라
+        /// (project/user/password/mdb 일부, out 메시지 유무, static/instance) 런타임에 맞춘다.
+        /// </summary>
+        private static bool OpenSession(string project, string user, string pass, string mdb, out string err)
+        {
+            err = "";
+            Type t = typeof(PdmsStandalone);
+            MethodInfo open = null;
+            foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
+            {
+                if (m.Name != "Open") continue;
+                if (open == null || m.GetParameters().Length > open.GetParameters().Length) open = m;
+            }
+            if (open == null) { err = "Open 메서드를 찾을 수 없음"; return false; }
+
+            ParameterInfo[] ps = open.GetParameters();
+            string[] supplied = new string[] { project, user, pass, mdb };
+            object[] args = new object[ps.Length];
+            int si = 0, outIdx = -1;
+            for (int i = 0; i < ps.Length; i++)
+            {
+                Type pt = ps[i].ParameterType;
+                if (ps[i].IsOut || pt.IsByRef) { args[i] = null; outIdx = i; }
+                else if (pt == typeof(string)) { args[i] = (si < supplied.Length) ? supplied[si++] : ""; }
+                else if (pt == typeof(int)) args[i] = 0;
+                else if (pt == typeof(bool)) args[i] = false;
+                else args[i] = pt.IsValueType ? Activator.CreateInstance(pt) : null;
+            }
+            object target = open.IsStatic ? null : Activator.CreateInstance(t);
+            object res = open.Invoke(target, args);
+            if (outIdx >= 0 && args[outIdx] != null) err = "응답: " + args[outIdx];
+            if (res is bool) return (bool)res;
+            return true; // void 반환이면 예외 없을 때 성공으로 간주
         }
 
         // ---- 설정 헬퍼 --------------------------------------------------------

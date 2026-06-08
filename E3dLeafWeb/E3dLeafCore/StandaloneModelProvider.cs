@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using Aveva.Pdms.Database;             // DbElement, DbElementType, DbAttributeInstance, Project (확인됨)
-using Aveva.Pdms.Utilities.Messaging;  // PdmsMessage (확인됨)
-using Aveva.Pdms.Standalone;           // Standalone  ← 네임스페이스 미확정. check-types.cmd 결과로 이 한 줄만 맞추면 됨
+using Aveva.Pdms.Standalone;           // PdmsStandalone (확인됨)
 
 namespace E3dLeafCore
 {
@@ -39,11 +39,10 @@ namespace E3dLeafCore
             {
                 if (!_started) { PdmsStandalone.Start(module, _env); _started = true; }
 
-                PdmsMessage error;
-                if (!PdmsStandalone.Open(req.Project, req.User, req.Password, req.Mdb, out error))
+                string openErr;
+                if (!OpenSession(req.Project, req.User, req.Password, req.Mdb, out openErr))
                 {
-                    int? n = (error != null) ? error.MessageNumber : (int?)null;
-                    res.Ok = false; res.Error = "프로젝트 로그인 실패. 메시지 번호: " + n; return res;
+                    res.Ok = false; res.Error = "프로젝트 로그인 실패. " + openErr; return res;
                 }
                 opened = true;
 
@@ -79,6 +78,41 @@ namespace E3dLeafCore
         public void Shutdown()
         {
             try { if (_started) PdmsStandalone.Finish(); } catch { }
+        }
+
+        /// <summary>
+        /// PdmsStandalone.Open 을 리플렉션으로 호출 (버전별 인수 차이 자동 대응).
+        /// </summary>
+        private static bool OpenSession(string project, string user, string pass, string mdb, out string err)
+        {
+            err = "";
+            Type t = typeof(PdmsStandalone);
+            MethodInfo open = null;
+            foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
+            {
+                if (m.Name != "Open") continue;
+                if (open == null || m.GetParameters().Length > open.GetParameters().Length) open = m;
+            }
+            if (open == null) { err = "Open 메서드를 찾을 수 없음"; return false; }
+
+            ParameterInfo[] ps = open.GetParameters();
+            string[] supplied = new string[] { project, user, pass, mdb };
+            object[] args = new object[ps.Length];
+            int si = 0, outIdx = -1;
+            for (int i = 0; i < ps.Length; i++)
+            {
+                Type pt = ps[i].ParameterType;
+                if (ps[i].IsOut || pt.IsByRef) { args[i] = null; outIdx = i; }
+                else if (pt == typeof(string)) { args[i] = (si < supplied.Length) ? supplied[si++] : ""; }
+                else if (pt == typeof(int)) args[i] = 0;
+                else if (pt == typeof(bool)) args[i] = false;
+                else args[i] = pt.IsValueType ? Activator.CreateInstance(pt) : null;
+            }
+            object target = open.IsStatic ? null : Activator.CreateInstance(t);
+            object res = open.Invoke(target, args);
+            if (outIdx >= 0 && args[outIdx] != null) err = "응답: " + args[outIdx];
+            if (res is bool) return (bool)res;
+            return true;
         }
     }
 }
