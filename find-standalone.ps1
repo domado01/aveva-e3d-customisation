@@ -19,12 +19,24 @@ if (Test-Path $dll) {
     $a = [Reflection.Assembly]::LoadFrom($dll)
     try { $ts = $a.GetTypes() } catch { $ts = $_.Exception.Types | Where-Object { $_ } }
     foreach ($t in ($ts | Where-Object { $_ -and $_.IsPublic } | Sort-Object FullName)) {
-      $mlist = $t.GetMethods("Public,Static,Instance,DeclaredOnly") | ForEach-Object { $_.Name } | Sort-Object -Unique
-      $hasSession = ($mlist -contains "Open") -or ($mlist -contains "Start") -or ($mlist -contains "Finish")
-      $tag = ""
-      if ($hasSession) { $tag = "   <<< 세션 클래스 (Open/Start/Finish 있음)" }
-      $lines.Add(("TYPE: " + $t.FullName + $tag))
-      $lines.Add(("   methods: " + (($mlist) -join ", ")))
+      $methods = $t.GetMethods("Public,Static,Instance,DeclaredOnly")
+      $names = $methods | ForEach-Object { $_.Name } | Sort-Object -Unique
+      $hasSession = ($names -contains "Open") -or ($names -contains "Start") -or ($names -contains "Finish")
+      if ($hasSession) {
+        $lines.Add(("TYPE: " + $t.FullName + "   <<< 세션 클래스"))
+        foreach ($m in ($methods | Where-Object { @("Start","Open","Finish","Close","Quit") -contains $_.Name } | Sort-Object Name)) {
+          $pstr = ($m.GetParameters() | ForEach-Object {
+            $pre = ""
+            if ($_.IsOut) { $pre = "out " } elseif ($_.ParameterType.IsByRef) { $pre = "ref " }
+            $pre + $_.ParameterType.Name + " " + $_.Name
+          }) -join ", "
+          $st = ""
+          if ($m.IsStatic) { $st = "static " }
+          $lines.Add(("   " + $st + $m.ReturnType.Name + " " + $m.Name + "(" + $pstr + ")"))
+        }
+      } else {
+        $lines.Add(("TYPE: " + $t.FullName))
+      }
     }
   } catch { $lines.Add("LOAD ERROR: " + $_.Exception.Message) }
 } else {
