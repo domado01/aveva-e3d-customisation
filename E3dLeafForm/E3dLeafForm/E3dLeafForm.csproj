@@ -5,13 +5,15 @@
     <TargetFramework>net48</TargetFramework>
     <PlatformTarget>x86</PlatformTarget> <!-- Marine OH12.1 = x86 -->
     <LangVersion>7.3</LangVersion>
-    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>E3dLeafForm</AssemblyName>
     <RootNamespace>E3dLeafForm</RootNamespace>
   </PropertyGroup>
 
+  <!-- WinForms 참조 (VS2017/MSBuild15 는 UseWindowsForms 자동참조 미지원 → 명시) -->
   <ItemGroup>
     <Reference Include="System.Configuration" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <!-- AVEVA Marine(PDMS) 참조. AvevaBinDir 은 루트 Directory.Build.props 에서. -->
