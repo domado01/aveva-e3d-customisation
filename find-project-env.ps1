@@ -36,6 +36,17 @@ try {
     ForEach-Object { $t = $sh.CreateShortcut($_.FullName); Write-Host ("  [{0}]" -f $_.Name); Write-Host ("     target: {0}" -f $t.TargetPath); Write-Host ("     args  : {0}" -f $t.Arguments) }
 } catch {}
 
-$dest = Join-Path $env:USERPROFILE "Desktop\project_env.txt"
 Write-Host ""
-Write-Host "(이 화면을 사진 찍어 보내주세요. 위 1~4 의 결과로 leaf-settings.config 를 채웁니다.)"
+Write-Host "===== 5) 실행 중인 AVEVA/PDMS 프로세스 (경로 + 명령줄) ====="
+try {
+  Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object { ($_.ExecutablePath -match "AVEVA|Marine|PDMS") -or ($_.Name -match "pdms|design|aveva|marine") } |
+    ForEach-Object {
+      Write-Host ("  {0} (pid {1})" -f $_.Name, $_.ProcessId)
+      Write-Host ("     path: {0}" -f $_.ExecutablePath)
+      Write-Host ("     cmd : {0}" -f $_.CommandLine)
+    }
+} catch { Write-Host "  (프로세스 조회 실패)" }
+
+Write-Host ""
+Write-Host "(★ AM 을 실행/로그인한 상태에서 돌리세요. 이 화면 전체를 사진 찍어 보내주세요.)"
