@@ -115,6 +115,10 @@ namespace E3dLeafForm
                 if (!PdmsStandalone.Open(project, user, pass, mdb))
                 {
                     Log("[오류] 로그인 실패 (Open=false). PROJECT/USER/PASSWORD/MDB 를 확인하세요.");
+                    Log("  - PDMS 에서 평소 쓰는 값과 동일해야 합니다.");
+                    Log("  - 프로젝트 경로 환경변수(projects_dir, 프로젝트코드000)가 실제 프로젝트를 가리켜야 합니다.");
+                    string plog = ReadPdmsLog();
+                    if (plog != "") { Log("---- PDMS 로그 (실패 사유) ----"); Log(plog); }
                     return;
                 }
                 Log("로그인 성공. 탐색 시작: " + startEl);
@@ -166,6 +170,35 @@ namespace E3dLeafForm
                 sw.WriteLine("Type\tName\tReference");
                 foreach (string[] r in rows) sw.WriteLine(r[0] + "\t" + r[1] + "\t" + r[2]);
             }
+        }
+
+        /// <summary>PDMS 로그(Standalone_log.txt 등)의 마지막 줄들을 읽어 실패 사유를 보여준다.</summary>
+        private static string ReadPdmsLog()
+        {
+            try
+            {
+                List<string> dirs = new List<string> { AppDomain.CurrentDomain.BaseDirectory, Environment.CurrentDirectory };
+                foreach (string dir in dirs)
+                {
+                    if (!Directory.Exists(dir)) continue;
+                    string[] cands = Directory.GetFiles(dir, "*tandalone*log*.txt");
+                    if (cands.Length == 0) cands = Directory.GetFiles(dir, "*log*.txt");
+                    foreach (string p in cands)
+                    {
+                        try
+                        {
+                            string[] lines = File.ReadAllLines(p);
+                            int n = Math.Min(lines.Length, 20);
+                            string[] tail = new string[n];
+                            Array.Copy(lines, lines.Length - n, tail, 0, n);
+                            return p + "\r\n" + string.Join("\r\n", tail);
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+            return "";
         }
 
         private static void SetupPdmsEnvironment(Hashtable env)
