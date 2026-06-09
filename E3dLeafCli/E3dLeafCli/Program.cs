@@ -140,6 +140,7 @@ namespace E3dLeafCli
                 string user = CleanFirstEnv(pr.Env, UserKeys);
                 string mdb = CleanFirstEnv(pr.Env, MdbKeys);
                 if (mdb == "") mdb = CleanFirstContains(pr.Env, "MDB");
+                string winTitle; bool hasWin = AmExec.TryGetWindow(pr.Pid, out winTitle);
                 if (i > 0) sb.Append(",");
                 sb.Append("{\"pid\":").Append(pr.Pid)
                   .Append(",\"name\":").Append(J(pr.Name))
@@ -149,6 +150,8 @@ namespace E3dLeafCli
                   .Append(",\"user\":").Append(J(user))
                   .Append(",\"mdb\":").Append(J(mdb))
                   .Append(",\"cmdline\":").Append(J(pr.CmdLine))
+                  .Append(",\"hasWindow\":").Append(hasWin ? "true" : "false")
+                  .Append(",\"windowTitle\":").Append(J(winTitle))
                   .Append(",\"projects\":[");
                 for (int k = 0; k < codes.Count; k++) { if (k > 0) sb.Append(","); sb.Append(J(codes[k])); }
                 sb.Append("]}");
@@ -163,10 +166,11 @@ namespace E3dLeafCli
         {
             int pid; int.TryParse(Get(a, "pid"), out pid);
             string cmd = Get(a, "cmd");
+            string project = Get(a, "project");
             if (pid <= 0 || cmd == "")
             { Write(resultPath, "{\"ok\":false,\"error\":\"pid/cmd 필요\"}"); return 1; }
             string err;
-            bool ok = AmExec.Exec(pid, cmd, out err);
+            bool ok = AmExec.Exec(pid, project, cmd, out err);
             Write(resultPath, ok ? ("{\"ok\":true,\"sent\":" + J(cmd) + "}") : ("{\"ok\":false,\"error\":" + J(err) + "}"));
             return ok ? 0 : 2;
         }

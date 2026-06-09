@@ -157,6 +157,22 @@ namespace E3dLeafCli
         {
             try { return Process.GetProcessById(pid).ProcessName; } catch { return ""; }
         }
+
+        /// <summary>실행 중인 모든 AVEVA 경로 프로세스의 pid 집합 (창 소유 여부 무관).</summary>
+        public static HashSet<int> AvevaPids()
+        {
+            HashSet<int> set = new HashSet<int>();
+            foreach (Process p in Process.GetProcesses())
+            {
+                try
+                {
+                    string fn = (p.MainModule != null) ? p.MainModule.FileName : "";
+                    if (!string.IsNullOrEmpty(fn) && fn.IndexOf("AVEVA", StringComparison.OrdinalIgnoreCase) >= 0) set.Add(p.Id);
+                }
+                catch { }
+            }
+            return set;
+        }
     }
 
     internal class AmProc

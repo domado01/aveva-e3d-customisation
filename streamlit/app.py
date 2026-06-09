@@ -132,15 +132,30 @@ ac1, ac2 = st.columns([1, 3])
 if ac1.button("🔄 AM 목록 새로고침", use_container_width=True):
     with st.spinner("실행 중인 AM 검색 중..."):
         r = run_cli(["list-am"])
-    ss["am_list"] = r.get("items", []) if r.get("ok") else []
-    if not ss["am_list"]:
+    items = r.get("items", []) if r.get("ok") else []
+    # GUI 창을 가진(=ADD 가능) AM 을 위로 정렬
+    items.sort(key=lambda a: (not a.get("hasWindow"), a.get("pid", 0)))
+    ss["am_list"] = items
+    if not items:
         st.warning("실행 중인 AM(프로젝트 환경 보유)을 찾지 못했습니다. AM 이 켜져 로그인됐는지, "
                    "그리고 같은 사용자(또는 관리자 권한)로 실행했는지 확인하세요. %s" % (r.get("error", "") or ""))
 
+
+def _am_label(a):
+    if a.get("hasWindow"):
+        t = (a.get("windowTitle") or "GUI")
+        if len(t) > 44:
+            t = t[:44] + "…"
+        tag = "🖼️ " + t
+    else:
+        tag = "백그라운드(창없음·ADD불가)"
+    return "pid %s · 프로젝트 %s · %s" % (a["pid"], a.get("project") or "?", tag)
+
+
 am_list = ss.get("am_list", [])
 if am_list:
-    labels = ["pid %s · 프로젝트 %s · %s" % (a["pid"], a.get("project") or "?", a.get("name")) for a in am_list]
-    sel = ac2.selectbox("작업할 AM", list(range(len(am_list))),
+    labels = [_am_label(a) for a in am_list]
+    sel = ac2.selectbox("작업할 AM (🖼️ 표시가 3D 뷰 ADD 가능)", list(range(len(am_list))),
                         format_func=lambda i: labels[i], key="am_sel_idx")
     chosen = am_list[sel]
     ss["am_pid"] = chosen["pid"]
@@ -255,7 +270,7 @@ if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (실행)", use_container_wi
              disabled=not ss.get("am_pid")):
     add_cmd = ("ADD %s" % ce) if ce else "ADD CE"
     with st.spinner("선택한 AM(pid %s) 에 '%s' 전송 중..." % (ss.get("am_pid"), add_cmd)):
-        r = run_cli(["am-exec", "--cmd", add_cmd])
+        r = run_cli(["am-exec", "--cmd", add_cmd, "--project", proj_val or ""])
     if r.get("ok"):
         st.success("✅ AM 에 전송 완료: %s  → AM 3D 뷰를 확인하세요." % add_cmd)
     else:
