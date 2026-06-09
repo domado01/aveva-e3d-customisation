@@ -21,3 +21,5 @@ _e3d_pdf_text.txt
 
 # gstack browse 세션 산출물
 .gstack/
+streamlit/__pycache__/
+*.pyc
