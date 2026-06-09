@@ -116,6 +116,43 @@ def detect_am():
     return d
 
 
+SESSION_FILE = r"C:\Users\Public\Documents\am_session.txt"
+
+
+def load_am_session():
+    """AM 명령창에서 am-session.pmlmac 가 만든 파일을 읽어 ②③ 를 채운다."""
+    if not os.path.isfile(SESSION_FILE):
+        st.warning("am_session.txt 가 없습니다. AM 명령창에서 am-session.pmlmac 를 먼저 실행하세요. "
+                   "( $m /<압축푼경로>/streamlit/am-session.pmlmac )")
+        return
+    kv = {}
+    try:
+        for line in open(SESSION_FILE, "r", encoding="utf-8", errors="replace"):
+            if "=" in line:
+                k, v = line.split("=", 1)
+                kv[k.strip().upper()] = v.strip()
+    except OSError as e:
+        st.error("읽기 실패: %s" % e)
+        return
+    proj = kv.get("PROJECT", "")
+    if proj:
+        if proj not in ss.get("projects", []):
+            ss["projects"] = [proj] + [c for c in ss.get("projects", []) if c != proj]
+        ss["f_project"] = proj
+    if kv.get("USER"):
+        ss["f_user"] = kv["USER"]
+    if kv.get("MDB"):
+        ss["f_mdb"] = kv["MDB"]
+    if kv.get("CE"):
+        ss["f_ce"] = kv["CE"]
+    st.success("AM 세션 불러옴 → PROJECT=%s · USER=%s · MDB=%s · 현재요소=%s"
+               % (kv.get("PROJECT") or "-", kv.get("USER") or "-", kv.get("MDB") or "-", kv.get("CE") or "-"))
+    blanks = [k for k in ("PROJECT", "USER", "MDB") if not kv.get(k)]
+    if blanks:
+        st.caption("빈 값(%s)은 AM PML 에서 못 읽은 것입니다. ②에서 직접 입력하거나, "
+                   "am-session 실행 시 화면에 출력된 줄을 알려주시면 PML 을 맞추겠습니다." % ", ".join(blanks))
+
+
 with st.sidebar:
     st.header("① AM 환경 감지")
     st.write("실행 중인 AM/PDMS 에서 프로젝트·USER·MDB 를 읽어와 자동으로 채웁니다.")
@@ -204,9 +241,13 @@ else:
 
 st.divider()
 st.subheader("② 추출 설정")
-if st.button("🔄 마지막 AM 정보 자동입력",
-             help="실행 중(마지막 활성) AM 에서 PROJECT/USER/MDB 를 읽어 아래 칸을 채웁니다."):
+bcol1, bcol2 = st.columns(2)
+if bcol1.button("🔄 마지막 AM 정보 자동입력", use_container_width=True,
+                help="실행 중 AM 의 프로세스 환경에서 PROJECT/USER/MDB 추정(부정확할 수 있음)."):
     detect_am()
+if bcol2.button("🔗 AM 세션 불러오기 (PML·정확)", use_container_width=True,
+                help="AM 명령창에서 am-session.pmlmac 실행 후 누르면 PROJECT/USER/MDB/현재요소를 정확히 채웁니다."):
+    load_am_session()
 c1, c2, c3 = st.columns(3)
 projects = ss.get("projects", [])
 if projects:

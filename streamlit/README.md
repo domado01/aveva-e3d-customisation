@@ -104,6 +104,22 @@ AM Explorer 에서 선택한 요소(CE) 하위의 모든 부재 이름을 뽑습
 - 동작 원리: 외부 프로그램은 AM 3D 뷰를 직접 못 만지므로, 선택한 AM 창을 전면으로 가져와 명령을 키 입력으로 보냅니다.
 - 전송 실패 시(전면 전환 차단 등): AM 명령창을 클릭해 포커스를 둔 뒤 다시 누르거나, 표시되는 한 줄을 직접 입력. 또는 `am-add-ce.pmlmac` 실행.
 
+## AM 명령창으로 정확히 연동 (PML, 권장)
+
+프로세스 환경 추측이 부정확할 때(특히 USER/MDB), AM 에 직접 물어보는 게 정확합니다.
+
+1. AM 명령창(Command Window)에:
+   ```
+   $m /C:/AVEVA/AVEVA_Streamlit_LeafExport/streamlit/am-session.pmlmac
+   ```
+   (경로는 압축 푼 위치에 맞게. 슬래시 / 사용)
+   → 화면에 `[AM-SESSION] PROJECT=… USER=… MDB=… CE=…` 출력 + 파일 저장
+     (`C:\Users\Public\Documents\am_session.txt`)
+2. 웹 ②의 **[🔗 AM 세션 불러오기 (PML·정확)]** 클릭 → PROJECT/USER/MDB/현재요소 자동 입력
+
+참고로 현재 선택 요소만 보려면 AM 명령창에 `Q VAR !!CE` 를 치면 됩니다.
+am-session 출력에서 빈 값(예: `MDB=`)이 있으면 그 줄을 알려주세요 — 버전에 맞는 PML 로 교정합니다.
+
 ## USER/MDB 가 자동으로 안 채워질 때
 
 USER·MDB 는 AM 이 환경변수로 노출하지 않을 수도 있습니다.
