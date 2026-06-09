@@ -59,7 +59,7 @@ def run_cli(args):
             p = st.session_state.get("am_env_pid")
             if p:
                 cmd += ["--pid", str(p)]
-        elif args[0] == "am-exec":
+        elif args[0] in ("am-exec", "am-windows"):
             p = st.session_state.get("am_win_pid")
             if p:
                 cmd += ["--pid", str(p)]
@@ -338,3 +338,18 @@ if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (실행)", use_container_wi
 if not ss.get("am_windows"):
     st.caption("※ 먼저 위 [🔄 새로고침] 으로 AM 창을 감지하면 ADD 버튼이 활성화됩니다. "
                "ADD 는 선택한 PROJECT 의 창 제목을 찾아 그 AM 에 실행합니다.")
+st.caption("ADD 가 전달이 안 되면(키 입력이 AM 명령창에 안 들어가면): 확실한 방법은 "
+           "AM 에서 am-add-ce.pmlmac 실행( = ADD CE ). 아래 진단으로 명령창 컨트롤을 알려주시면 "
+           "웹 버튼이 그 컨트롤에 직접 입력하도록 맞추겠습니다.")
+with st.expander("🛠️ 고급: AM 명령창 구조 진단 (ADD 전달 안 될 때)"):
+    if st.button("AM 자식창 목록 보기", disabled=not ss.get("am_win_pid")):
+        d = run_cli(["am-windows", "--project", proj_val or ""])
+        ch = d.get("children", []) if d.get("ok") else []
+        if ch:
+            st.dataframe([{"class": c.get("class"), "text": c.get("text"), "handle": c.get("handle")} for c in ch],
+                         use_container_width=True, height=320)
+            st.caption("이 목록(특히 class 가 Edit/RichEdit 류이고 명령창으로 보이는 행)을 알려주시면 "
+                       "ADD 를 그 컨트롤에 직접 보내도록 고치겠습니다.")
+        else:
+            st.warning("자식창을 찾지 못했습니다(WPF 기반이면 자식 HWND 가 없을 수 있음). "
+                       "그 경우 am-add-ce.pmlmac 로 ADD 하세요.")

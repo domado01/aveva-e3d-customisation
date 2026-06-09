@@ -30,14 +30,20 @@ namespace E3dLeafCli
 
                 if (mode == "list-am") return ListAmMode(resultPath);
                 if (mode == "detect-env") return DetectEnv(a, resultPath);
-                if (mode == "extract") return Extract(a, resultPath);
+                if (mode == "am-windows") return AmWindowsMode(a, resultPath);
                 if (mode == "am-exec") return AmExecMode(a, resultPath);
-                Write(resultPath, "{\"ok\":false,\"error\":\"unknown mode. use list-am | detect-env | extract | am-exec\"}");
+                if (mode == "extract")
+                {
+                    AvevaHost.Setup(); // AVEVA DLL 을 AVEVA bin 에서 로드하도록 (extract 만 AVEVA 사용)
+                    return Extract(a, resultPath);
+                }
+                Write(resultPath, "{\"ok\":false,\"error\":\"unknown mode. use list-am | detect-env | extract | am-exec | am-windows\"}");
                 return 1;
             }
             catch (Exception ex)
             {
-                if (resultPath != null) Write(resultPath, "{\"ok\":false,\"error\":" + J(ex.Message) + "}");
+                if (resultPath != null)
+                    Write(resultPath, "{\"ok\":false,\"error\":" + J(ex.GetType().Name + ": " + ex.Message + "  [AVEVA bin=" + AvevaHost.BinDir + "]") + "}");
                 return 10;
             }
         }
@@ -184,6 +190,24 @@ namespace E3dLeafCli
                   .Append(",\"project\":").Append(J(wproj))
                   .Append(",\"cmdline\":").Append(J(wcmd))
                   .Append("}");
+            }
+            sb.Append("]}");
+            Write(resultPath, sb.ToString());
+            return 0;
+        }
+
+        // 대상 AM 창의 자식 컨트롤 덤프 (명령창 컨트롤 식별용 진단)
+        private static int AmWindowsMode(Dictionary<string, string> a, string resultPath)
+        {
+            int pid; int.TryParse(Get(a, "pid"), out pid);
+            string project = Get(a, "project");
+            List<AmWindow> ch = AmExec.ListChildWindows(pid, project);
+            StringBuilder sb = new StringBuilder();
+            sb.Append("{\"ok\":").Append(ch.Count > 0 ? "true" : "false").Append(",\"children\":[");
+            for (int i = 0; i < ch.Count; i++)
+            {
+                if (i > 0) sb.Append(",");
+                sb.Append("{\"class\":").Append(J(ch[i].Cls)).Append(",\"text\":").Append(J(ch[i].Title)).Append(",\"handle\":").Append(ch[i].Handle).Append("}");
             }
             sb.Append("]}");
             Write(resultPath, sb.ToString());

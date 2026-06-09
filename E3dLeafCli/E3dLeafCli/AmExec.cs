@@ -28,6 +28,8 @@ namespace E3dLeafCli
         [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
         [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
         [DllImport("user32.dll")] private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+        [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr hWnd, EnumWindowsProc cb, IntPtr l);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder s, int max);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct INPUT { public uint type; public KEYBDINPUT ki; }
@@ -76,6 +78,37 @@ namespace E3dLeafCli
             Thread.Sleep(60);
             TapVk(VK_RETURN);
             return true;
+        }
+
+        private static IntPtr ResolveTarget(int preferredPid, string project)
+        {
+            List<WinInfo> wins = FindAvevaWindows();
+            foreach (WinInfo w in wins) if (w.Pid == preferredPid) return w.Hwnd;
+            if (!string.IsNullOrEmpty(project))
+                foreach (WinInfo w in wins) if (w.Title.IndexOf(project, StringComparison.OrdinalIgnoreCase) >= 0) return w.Hwnd;
+            if (wins.Count == 1) return wins[0].Hwnd;
+            return IntPtr.Zero;
+        }
+
+        /// <summary>대상 AM 창의 자식 컨트롤(클래스+텍스트) 목록 — 명령창 컨트롤 식별용 진단.</summary>
+        public static List<AmWindow> ListChildWindows(int preferredPid, string project)
+        {
+            List<AmWindow> result = new List<AmWindow>();
+            IntPtr hwnd = ResolveTarget(preferredPid, project);
+            if (hwnd == IntPtr.Zero) return result;
+            EnumChildWindows(hwnd, (h, l) =>
+            {
+                result.Add(new AmWindow { Handle = h.ToInt64(), Cls = GetClassNameStr(h), Title = GetTitle(h) });
+                return true;
+            }, IntPtr.Zero);
+            return result;
+        }
+
+        private static string GetClassNameStr(IntPtr h)
+        {
+            StringBuilder sb = new StringBuilder(256);
+            GetClassName(h, sb, 256);
+            return sb.ToString();
         }
 
         /// <summary>실행 중인 모든 AVEVA GUI 창(pid + 제목) 목록.</summary>
@@ -168,5 +201,7 @@ namespace E3dLeafCli
     {
         public int Pid;
         public string Title = "";
+        public string Cls = "";
+        public long Handle;
     }
 }

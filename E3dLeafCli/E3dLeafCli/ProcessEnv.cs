@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -172,6 +173,23 @@ namespace E3dLeafCli
                 catch { }
             }
             return set;
+        }
+
+        /// <summary>실행 중인 AM 프로세스 폴더 중 Aveva.Pdms.Database.dll 이 있는 곳(=AVEVA bin).</summary>
+        public static string FindAvevaBinDir()
+        {
+            foreach (Process p in Process.GetProcesses())
+            {
+                try
+                {
+                    string fn = (p.MainModule != null) ? p.MainModule.FileName : "";
+                    if (string.IsNullOrEmpty(fn) || fn.IndexOf("AVEVA", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    string dir = Path.GetDirectoryName(fn);
+                    if (dir != null && File.Exists(Path.Combine(dir, "Aveva.Pdms.Database.dll"))) return dir;
+                }
+                catch { }
+            }
+            return "";
         }
     }
 
