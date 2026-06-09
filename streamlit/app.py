@@ -93,6 +93,8 @@ ss.setdefault("am_allprojects", [])
 ss.setdefault("am_env_pid", None)
 ss.setdefault("am_win_pid", None)
 ss.setdefault("sel_win_key", None)
+ss.setdefault("cmd_class", "WindowsForms10.Window.8.app.0.34f5582_r33_ad1")
+ss.setdefault("am_children", [])
 
 
 def detect_am():
@@ -327,8 +329,9 @@ if st.button("📌 선택 요소 하위 모든 부재 이름 추출", use_contai
 if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (실행)", use_container_width=True,
              disabled=not ss.get("am_windows")):
     add_cmd = ("ADD %s" % ce) if ce else "ADD CE"
-    with st.spinner("프로젝트 '%s' 의 AM 창에 '%s' 전송 중..." % (proj_val or "?", add_cmd)):
-        r = run_cli(["am-exec", "--cmd", add_cmd, "--project", proj_val or ""])
+    with st.spinner("프로젝트 '%s' 의 AM 명령창에 '%s' 전송 중..." % (proj_val or "?", add_cmd)):
+        r = run_cli(["am-exec", "--cmd", add_cmd, "--project", proj_val or "",
+                     "--wndclass", ss.get("cmd_class", "")])
     if r.get("ok"):
         st.success("✅ AM 에 전송 완료: %s  → 선택한 프로젝트(%s)의 AM 3D 뷰를 확인하세요." % (add_cmd, proj_val or ""))
     else:
@@ -341,15 +344,27 @@ if not ss.get("am_windows"):
 st.caption("ADD 가 전달이 안 되면(키 입력이 AM 명령창에 안 들어가면): 확실한 방법은 "
            "AM 에서 am-add-ce.pmlmac 실행( = ADD CE ). 아래 진단으로 명령창 컨트롤을 알려주시면 "
            "웹 버튼이 그 컨트롤에 직접 입력하도록 맞추겠습니다.")
-with st.expander("🛠️ 고급: AM 명령창 구조 진단 (ADD 전달 안 될 때)"):
+st.caption("현재 ADD 대상 명령창 class: `%s`" % (ss.get("cmd_class") or "(미지정)"))
+with st.expander("🛠️ 고급: AM 명령창 컨트롤 지정 (ADD 가 안 들어갈 때)"):
+    st.write("ADD 키 입력이 들어갈 **명령창 컨트롤의 class** 를 지정합니다. "
+             "아래에서 목록을 보고 명령창에 해당하는 class 를 고르세요.")
     if st.button("AM 자식창 목록 보기", disabled=not ss.get("am_win_pid")):
         d = run_cli(["am-windows", "--project", proj_val or ""])
-        ch = d.get("children", []) if d.get("ok") else []
-        if ch:
-            st.dataframe([{"class": c.get("class"), "text": c.get("text"), "handle": c.get("handle")} for c in ch],
-                         use_container_width=True, height=320)
-            st.caption("이 목록(특히 class 가 Edit/RichEdit 류이고 명령창으로 보이는 행)을 알려주시면 "
-                       "ADD 를 그 컨트롤에 직접 보내도록 고치겠습니다.")
-        else:
-            st.warning("자식창을 찾지 못했습니다(WPF 기반이면 자식 HWND 가 없을 수 있음). "
-                       "그 경우 am-add-ce.pmlmac 로 ADD 하세요.")
+        ss["am_children"] = d.get("children", []) if d.get("ok") else []
+        if not ss["am_children"]:
+            st.warning("자식창을 찾지 못했습니다. am-add-ce.pmlmac 로 ADD 하세요.")
+    ch = ss.get("am_children", [])
+    if ch:
+        st.dataframe([{"class": c.get("class"), "text": c.get("text"), "handle": c.get("handle")} for c in ch],
+                     use_container_width=True, height=260)
+        classes = sorted({c.get("class") for c in ch if c.get("class")})
+        cur = ss.get("cmd_class")
+        idx = classes.index(cur) if cur in classes else 0
+        pick = st.selectbox("명령창 컨트롤 class 선택", classes, index=idx, key="cmd_class_pick")
+        if st.button("✅ 이 class 를 ADD 명령창으로 저장"):
+            ss["cmd_class"] = pick
+            st.success("저장됨: %s" % pick)
+    man = st.text_input("또는 class 직접 입력", value=ss.get("cmd_class", ""), key="cmd_class_manual")
+    if st.button("직접 입력값 저장"):
+        ss["cmd_class"] = man.strip()
+        st.success("저장됨: %s" % ss["cmd_class"])

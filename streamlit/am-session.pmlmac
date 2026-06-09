@@ -1,64 +1,33 @@
 $* ============================================================
-$*  am-session.pmlmac   (AVEVA Marine / PDMS  PML2)
+$*  am-session.pmlmac   (AVEVA Marine / PDMS  PML2)  - 안전판
 $* ------------------------------------------------------------
-$*  현재 AM 세션 정보를 [화면 출력] + [파일 저장] 한다.
+$*  현재 선택 요소(CE)를 파일로 저장한다.  (확실한 PML 구문만 사용)
 $*  파일: C:\Users\Public\Documents\am_session.txt
-$*  Streamlit 의 [🔗 AM 세션 불러오기 (PML)] 버튼이 이 파일을 읽어 ②③ 를 채운다.
+$*  Streamlit [🔗 AM 세션 불러오기] 가 이 파일을 읽는다.
 $*
-$*  [사용]  AM 명령창(Command Window) 에:
+$*  [사용]  AM 명령창:
 $*      $m /C:/AVEVA/AVEVA_Streamlit_LeafExport/streamlit/am-session.pmlmac
 $*    (경로는 압축 푼 위치에 맞게. 슬래시 / 사용)
 $*
-$*  ※ 값이 빈 줄(예: PROJECT= )이 있으면 그 줄을 글자로 알려주세요.
-$*    버전에 맞는 정확한 PML 로 바꿔드립니다.
+$*  ※ 실행 후 빨간 오류 줄이 보이면 그 줄을, 또는 화면 [AM-SESSION] 출력을
+$*    그대로 알려주세요. (PROJECT/USER/MDB 는 안전 확인 후 추가합니다)
 $* ============================================================
 
-!lines = object ARRAY()
+!arr = object ARRAY()
+!arr.Append('SOURCE=am-session')
 
-$* ---- 1) 현재 선택 요소 (3번에서 사용) ----
-!ceref = ''
-!ceref = !!CE.Dbref().String()
-handle any
-endhandle
+$* 현재 선택 요소 이름 (없거나 오류면 빈값)
 !cename = ''
-!cename = !!CE.Fullname()
+!cename = !!CE.Name
 handle any
+  !cename = ''
 endhandle
-!lines.Append('CE=' & !ceref)
-!lines.Append('CENAME=' & !cename)
-$P [AM-SESSION] CE      = $!ceref   ( $!cename )
+!arr.Append('CE=' & !cename)
 
-$* ---- 2) 프로젝트 / 유저 / MDB (환경변수 후보; 버전에 따라 빈값 가능) ----
-!proj = ''
-!proj = evar('PROJ')
-handle any
-endhandle
-!user = ''
-!user = evar('USER')
-handle any
-endhandle
-!pdmsuser = ''
-!pdmsuser = evar('PDMSUSER')
-handle any
-endhandle
-!mdb = ''
-!mdb = evar('MDB')
-handle any
-endhandle
-
-if (!user.Empty() and not !pdmsuser.Empty()) then
-  !user = !pdmsuser
-endif
-
-!lines.Append('PROJECT=' & !proj)
-!lines.Append('USER=' & !user)
-!lines.Append('MDB=' & !mdb)
-$P [AM-SESSION] PROJECT = $!proj
-$P [AM-SESSION] USER    = $!user
-$P [AM-SESSION] MDB     = $!mdb
-
-$* ---- 저장 ----
+$* 파일 저장
 !file = object FILE('C:/Users/Public/Documents/am_session.txt')
-!file.WriteFile('OVERWRITE', !lines)
-$P [AM-SESSION] 저장됨: C:\Users\Public\Documents\am_session.txt
-$P [AM-SESSION] 빈 값이 있으면 위 줄들을 그대로 알려주세요.
+!file.WriteFile('OVERWRITE', !arr)
+
+$P [AM-SESSION] 저장 시도 완료: C:\Users\Public\Documents\am_session.txt
+$P [AM-SESSION] CE = $!cename
+$P [AM-SESSION] (위에 빨간 오류 줄이 있으면 알려주세요)

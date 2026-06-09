@@ -220,10 +220,11 @@ namespace E3dLeafCli
             int pid; int.TryParse(Get(a, "pid"), out pid);
             string cmd = Get(a, "cmd");
             string project = Get(a, "project");
+            string wndClass = Get(a, "wndclass");
             if (pid <= 0 || cmd == "")
             { Write(resultPath, "{\"ok\":false,\"error\":\"pid/cmd 필요\"}"); return 1; }
             string err;
-            bool ok = AmExec.Exec(pid, project, cmd, out err);
+            bool ok = AmExec.Exec(pid, project, wndClass, cmd, out err);
             Write(resultPath, ok ? ("{\"ok\":true,\"sent\":" + J(cmd) + "}") : ("{\"ok\":false,\"error\":" + J(err) + "}"));
             return ok ? 0 : 2;
         }

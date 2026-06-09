@@ -26,6 +26,7 @@ namespace E3dLeafCli
         [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+        [DllImport("user32.dll")] private static extern IntPtr SetFocus(IntPtr hWnd);
         [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
         [DllImport("user32.dll")] private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
         [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr hWnd, EnumWindowsProc cb, IntPtr l);
@@ -44,7 +45,7 @@ namespace E3dLeafCli
 
         private class WinInfo { public IntPtr Hwnd; public int Pid; public string Title = ""; }
 
-        public static bool Exec(int preferredPid, string project, string cmd, out string err)
+        public static bool Exec(int preferredPid, string project, string wndClass, string cmd, out string err)
         {
             err = "";
             List<WinInfo> wins = FindAvevaWindows();
@@ -52,32 +53,60 @@ namespace E3dLeafCli
             { err = "AVEVA GUI 창을 찾지 못했습니다. AM 이 최소화/숨김이면 복원한 뒤 다시 시도하세요."; return false; }
 
             IntPtr hwnd = IntPtr.Zero;
-            // 1) 선택한 pid 의 창
             foreach (WinInfo w in wins) if (w.Pid == preferredPid) { hwnd = w.Hwnd; break; }
-            // 2) 제목에 프로젝트명이 들어간 창
             if (hwnd == IntPtr.Zero && !string.IsNullOrEmpty(project))
                 foreach (WinInfo w in wins) if (w.Title.IndexOf(project, StringComparison.OrdinalIgnoreCase) >= 0) { hwnd = w.Hwnd; break; }
-            // 3) AVEVA 창이 하나뿐이면 그것
             if (hwnd == IntPtr.Zero && wins.Count == 1) hwnd = wins[0].Hwnd;
 
             if (hwnd == IntPtr.Zero)
             {
                 List<string> t = new List<string>();
                 foreach (WinInfo w in wins) t.Add("pid " + w.Pid + " : " + w.Title);
-                err = "AM 창을 특정하지 못했습니다(여러 개). 후보: " + string.Join(" | ", t.ToArray())
-                    + "  → 제목에 프로젝트명이 보이는 AM 을 목록에서 선택하거나, 그 AM 만 남기고 다시 시도하세요.";
+                err = "AM 창을 특정하지 못했습니다(여러 개). 후보: " + string.Join(" | ", t.ToArray());
                 return false;
             }
 
-            if (!ForceForeground(hwnd)) { /* 계속 시도 */ }
+            ForceForeground(hwnd);
             Thread.Sleep(350);
             if (GetForegroundWindow() != hwnd)
             { err = "AM 창을 전면으로 가져오지 못했습니다. AM 명령창을 한번 클릭(포커스)한 뒤 다시 시도하세요."; return false; }
+
+            // 명령창 컨트롤(클래스 지정 시)에 포커스를 준다 → 키 입력이 명령창으로 들어가게
+            if (!string.IsNullOrEmpty(wndClass))
+            {
+                IntPtr child = FindChildByClass(hwnd, wndClass);
+                if (child != IntPtr.Zero)
+                {
+                    uint dummy;
+                    uint tid = GetWindowThreadProcessId(hwnd, out dummy);
+                    uint me = GetCurrentThreadId();
+                    bool att = (tid != me) && AttachThreadInput(me, tid, true);
+                    SetFocus(child);
+                    if (att) AttachThreadInput(me, tid, false);
+                    Thread.Sleep(80);
+                }
+                else
+                {
+                    err = "지정한 명령창 클래스(" + wndClass + ") 컨트롤을 못 찾았습니다. '고급 진단'에서 클래스를 다시 확인하세요.";
+                    return false;
+                }
+            }
 
             TypeString(cmd);
             Thread.Sleep(60);
             TapVk(VK_RETURN);
             return true;
+        }
+
+        private static IntPtr FindChildByClass(IntPtr parent, string cls)
+        {
+            IntPtr found = IntPtr.Zero;
+            EnumChildWindows(parent, (h, l) =>
+            {
+                if (IsWindowVisible(h) && GetClassNameStr(h) == cls) { found = h; return false; }
+                return true;
+            }, IntPtr.Zero);
+            return found;
         }
 
         private static IntPtr ResolveTarget(int preferredPid, string project)
