@@ -1,0 +1,21 @@
+$* ============================================================
+$*  am-add-ce.pmlmac   (AVEVA Marine / PDMS  PML 매크로)
+$* ------------------------------------------------------------
+$*  현재 선택 요소(CE)를 3D 뷰(드로우리스트)에 ADD 한다.
+$*  = Design Explorer 에서 선택한 요소를 뷰창에 추가.
+$*
+$*  [사용법]  AM 에서 요소 선택 후, 명령창(Command Window)에:
+$*      $m /C:/AVEVA/AVEVA_Streamlit_LeafExport/streamlit/am-add-ce.pmlmac
+$*    (경로는 압축 푼 위치에 맞게 수정. 슬래시 / 사용)
+$*    자주 쓰면 AM 툴바/Alias 에 등록해 버튼처럼 사용하세요.
+$*
+$*  ※ 에러가 나면 그 줄을 글자로 알려주세요.
+$* ============================================================
+
+handle any
+  $P [am-add-ce] 오류 발생: $!!error.text
+  return
+endhandle
+
+ADD CE
+$P [am-add-ce] 현재 선택 요소를 3D 뷰에 ADD 했습니다.

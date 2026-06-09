@@ -188,3 +188,11 @@ ce = cc2.text_input("현재 선택 요소 (Name 또는 Ref, 예: =123/456 또는
 if st.button("📌 선택 요소 하위 모든 부재 이름 추출", use_container_width=True,
              disabled=not (proj_val and user and mdb and ce)):
     run_extract(ce, "선택 요소(%s) 하위 추출 중..." % ce)
+
+# 선택 요소를 AM 3D 뷰(드로우리스트)에 ADD — AM 내부 동작이라 명령을 만들어 안내
+if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (명령 만들기)", use_container_width=True):
+    add_cmd = ("ADD %s" % ce) if ce else "ADD CE"
+    st.code(add_cmd, language="text")
+    st.caption("이 한 줄을 AM 명령창에 붙여넣으면 선택 요소가 3D 뷰(드로우리스트)에 추가됩니다. "
+               "한 번에 하려면 AM 에서 am-add-ce.pmlmac 매크로를 실행하세요 (현재 선택요소 CE 를 뷰에 ADD). "
+               "※ 3D 뷰 조작은 실행 중인 AM 내부에서만 가능해 웹에서 직접 추가할 수 없습니다.")
