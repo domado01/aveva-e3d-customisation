@@ -133,23 +133,18 @@ start = c6.text_input("시작 요소 (빈칸/전체 = 모델 전체)", value=ss.
 
 proj_val = project if projects else ss.get("f_project", "")
 
-run = st.button("🚀 추출 실행", type="primary", use_container_width=True,
-                disabled=not (proj_val and user and mdb))
-
-if run:
-    with st.spinner("PDMS 세션 시작 → 로그인 → leaf 추출 중... (수 분 소요될 수 있음)"):
+def run_extract(start_value, spinner):
+    if not (proj_val and user and mdb):
+        st.error("PROJECT / USER / MDB 를 먼저 채우세요. (사이드바 [AM 환경 자동 감지])")
+        return
+    with st.spinner(spinner):
         res = run_cli([
-            "extract",
-            "--project", proj_val,
-            "--user", user,
-            "--password", password,
-            "--mdb", mdb,
-            "--module", module or "78",
-            "--start", start,
+            "extract", "--project", proj_val, "--user", user, "--password", password,
+            "--mdb", mdb, "--module", module or "78", "--start", start_value,
         ])
     if res.get("ok"):
         rows = res.get("rows", [])
-        st.success("✅ leaf %d 개 추출 완료" % res.get("count", len(rows)))
+        st.success("✅ 부재(leaf) %d 개 추출 완료" % res.get("count", len(rows)))
         if rows:
             st.dataframe(rows, use_container_width=True, height=480)
         fpath = res.get("file", "")
@@ -163,3 +158,33 @@ if run:
         st.error("추출 실패: %s" % res.get("error", "알 수 없는 오류"))
         st.info("AM 이 실행·로그인된 상태인지, PROJECT/USER/MDB 값이 맞는지 확인하세요. "
                 "먼저 사이드바의 'AM 환경 자동 감지'를 눌러 값을 채우면 로그인 성공률이 올라갑니다.")
+
+
+if st.button("🚀 추출 실행", type="primary", use_container_width=True,
+             disabled=not (proj_val and user and mdb)):
+    run_extract(start, "PDMS 세션 시작 → 로그인 → leaf 추출 중... (수 분 소요될 수 있음)")
+
+# ─────────────────────────────────────────────────────────────
+st.divider()
+st.subheader("③ AM 현재 선택 요소 하위 추출")
+st.caption("실행 중인(마지막 활성) AM Explorer 에서 선택한 요소(CE) 하위의 모든 부재 이름을 뽑습니다.")
+st.info("선택 상태는 AM 내부 정보라 외부에서 직접 못 읽습니다. AM 명령창에서 `am-export-ce.pmlmac` 를 한 번 실행하면 "
+        "현재 선택 요소가 파일로 저장되고, 아래 [AM 현재요소 불러오기] 로 자동 입력됩니다. "
+        "(또는 AM Explorer 에서 본 Ref/Name 을 오른쪽에 직접 입력)")
+
+CE_FILE = r"C:\Users\Public\Documents\am_current_element.txt"
+cc1, cc2 = st.columns([1, 3])
+if cc1.button("🔄 AM 현재요소 불러오기", use_container_width=True):
+    if os.path.isfile(CE_FILE):
+        try:
+            ss["f_ce"] = open(CE_FILE, "r", encoding="utf-8").read().strip()
+            st.success("불러옴: %s" % ss["f_ce"])
+        except OSError as e:
+            st.error("읽기 실패: %s" % e)
+    else:
+        st.warning("CE 파일이 없습니다. AM 명령창에서 am-export-ce.pmlmac 를 먼저 실행하거나, 오른쪽에 직접 입력하세요.")
+ce = cc2.text_input("현재 선택 요소 (Name 또는 Ref, 예: =123/456 또는 /SITE-XXX)", key="f_ce")
+
+if st.button("📌 선택 요소 하위 모든 부재 이름 추출", use_container_width=True,
+             disabled=not (proj_val and user and mdb and ce)):
+    run_extract(ce, "선택 요소(%s) 하위 추출 중..." % ce)

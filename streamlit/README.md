@@ -73,6 +73,23 @@ E3dLeafCli.exe extract --project SN2661 --user 02564 --password "" ^
   --mdb MYMDB --module 78 --start /SITE-XXX --result out.json
 ```
 
+## ③ AM 현재 선택 요소 하위 추출 (마지막 활성 AM)
+
+AM Explorer 에서 선택한 요소(CE) 하위의 모든 부재 이름을 뽑습니다.
+선택 상태는 AM 내부 UI 정보라 외부 프로그램이 직접 읽을 수 없어, AM 이 파일로 한 번 내보내는 방식입니다.
+
+1. AM 에서 원하는 요소를 Explorer 에서 선택(클릭)
+2. AM 명령창에 매크로 실행 (경로는 압축 푼 위치에 맞게):
+   ```
+   $m /C:/AVEVA/AVEVA_Streamlit_LeafExport/streamlit/am-export-ce.pmlmac
+   ```
+   → `C:\Users\Public\Documents\am_current_element.txt` 에 현재 요소 Ref 저장
+3. 웹의 ③ 섹션에서 **[🔄 AM 현재요소 불러오기]** → 자동 입력
+4. **[📌 선택 요소 하위 모든 부재 이름 추출]** 클릭
+
+직접 입력도 가능: AM Explorer 에서 본 Name/Ref 를 ③의 입력칸에 넣고 버튼 클릭.
+(매크로가 PML 버전차로 에러나면 에러 줄을 알려주세요 — 맞춰 수정합니다.)
+
 ## USER/MDB 가 자동으로 안 채워질 때
 
 USER·MDB 는 AM 이 환경변수로 노출하지 않을 수도 있습니다.
