@@ -81,9 +81,10 @@ st.caption("최하위(leaf) 모델 요소의 Name / Ref 를 추출합니다. AM/
 ss = st.session_state
 ss.setdefault("projects", [])
 ss.setdefault("detected", {})
-ss.setdefault("am_list", [])
+ss.setdefault("am_items", [])
+ss.setdefault("am_windows", [])
 ss.setdefault("am_pid", None)
-ss.setdefault("am_pid_prev", None)
+ss.setdefault("open_project", "")
 
 
 def detect_am():
@@ -126,64 +127,61 @@ with st.sidebar:
             else:
                 st.write("환경변수를 읽지 못했습니다.")
 
-st.subheader("🖥️ 실행 중인 AM 선택")
-st.caption("여러 AM 이 떠 있을 때 작업할 AM 을 고릅니다. 이후 모든 기능이 이 AM 의 환경/창을 통해 동작합니다.")
-ac1, ac2 = st.columns([1, 3])
-if ac1.button("🔄 AM 목록 새로고침", use_container_width=True):
+st.subheader("🖥️ 실행 중인 AM / 프로젝트")
+st.caption("AM 1개만 떠 있어도 환경에는 정의된 모든 프로젝트가 들어있습니다. "
+           "실제 '열린 프로젝트'는 AM 창 제목으로 식별해 자동 선택하고, 후보가 여러 개면 ② PROJECT 에서 바꿉니다.")
+if st.button("🔄 새로고침 (AM·프로젝트 감지)", use_container_width=True):
     with st.spinner("실행 중인 AM 검색 중..."):
         r = run_cli(["list-am"])
     items = r.get("items", []) if r.get("ok") else []
-    # GUI 창을 가진(=ADD 가능) AM 을 위로 정렬
-    items.sort(key=lambda a: (not a.get("hasWindow"), a.get("pid", 0)))
-    ss["am_list"] = items
-    if not items:
-        st.warning("실행 중인 AM(프로젝트 환경 보유)을 찾지 못했습니다. AM 이 켜져 로그인됐는지, "
-                   "그리고 같은 사용자(또는 관리자 권한)로 실행했는지 확인하세요. %s" % (r.get("error", "") or ""))
-
-
-def _am_label(a):
-    if a.get("hasWindow"):
-        t = (a.get("windowTitle") or "GUI")
-        if len(t) > 44:
-            t = t[:44] + "…"
-        tag = "🖼️ " + t
+    windows = r.get("windows", []) if r.get("ok") else []
+    ss["am_items"] = items
+    ss["am_windows"] = windows
+    if items:
+        # 프로젝트 코드를 가장 많이 가진 프로세스를 환경 소스로 (env 는 프로세스 간 동일)
+        env_item = sorted(items, key=lambda a: -len(a.get("projects", [])))[0]
+        ss["am_pid"] = env_item["pid"]
+        allp = sorted({c for a in items for c in a.get("projects", []) if c})
+        ss["projects"] = allp
+        # 실제 열린 프로젝트 = 창 제목에 등장하는 코드
+        titles = " ".join((w.get("title") or "") for w in windows)
+        openp = next((c for c in allp if c and c.lower() in titles.lower()), "")
+        ss["open_project"] = openp
+        if openp:
+            ss["f_project"] = openp
+        elif env_item.get("project"):
+            ss["f_project"] = env_item["project"]
+        elif allp:
+            ss["f_project"] = allp[0]
+        if env_item.get("user"):
+            ss["f_user"] = env_item["user"]
+        if env_item.get("mdb"):
+            ss["f_mdb"] = env_item["mdb"]
+        ss["detected"] = {"projectsDir": env_item.get("projectsDir", ""), "projects": allp,
+                          "env": {}, "proc": env_item.get("name", "")}
     else:
-        tag = "백그라운드(창없음·ADD불가)"
-    return "pid %s · 프로젝트 %s · %s" % (a["pid"], a.get("project") or "?", tag)
+        ss["am_pid"] = None
+        st.warning("실행 중인 AM 을 찾지 못했습니다. AM 로그인 상태 / 같은 사용자(또는 관리자) 실행을 확인하세요. %s"
+                   % (r.get("error", "") or ""))
 
-
-am_list = ss.get("am_list", [])
-if am_list:
-    labels = [_am_label(a) for a in am_list]
-    sel = ac2.selectbox("작업할 AM (🖼️ 표시가 3D 뷰 ADD 가능)", list(range(len(am_list))),
-                        format_func=lambda i: labels[i], key="am_sel_idx")
-    chosen = am_list[sel]
-    ss["am_pid"] = chosen["pid"]
-    # 선택이 바뀌면 그 AM 기준으로 PROJECT/USER/MDB 자동 채움 (AAA 같은 템플릿 방지: project 는 추정값)
-    if ss.get("am_pid_prev") != chosen["pid"]:
-        ss["am_pid_prev"] = chosen["pid"]
-        ss["projects"] = chosen.get("projects", [])
-        if chosen.get("project"):
-            ss["f_project"] = chosen["project"]
-        elif chosen.get("projects"):
-            ss["f_project"] = chosen["projects"][0]
-        if chosen.get("user"):
-            ss["f_user"] = chosen["user"]
-        if chosen.get("mdb"):
-            ss["f_mdb"] = chosen["mdb"]
-        ss["detected"] = {"projectsDir": chosen.get("projectsDir", ""), "projects": chosen.get("projects", []),
-                          "env": {}, "proc": chosen.get("name", "")}
-    st.success("선택됨 → pid %s | 프로젝트 %s | USER %s | MDB %s"
-               % (chosen["pid"], chosen.get("project") or "-", chosen.get("user") or "-", chosen.get("mdb") or "-"))
-    if chosen.get("cmdline"):
-        with st.expander("선택한 AM 의 원시 명령줄 보기 (값 확인용)"):
-            st.code(chosen["cmdline"], language="text")
-    st.caption("※ AM 은 USER/MDB 를 환경변수로 깔끔히 노출하지 않습니다. 비어 있으면 ②에서 직접 입력하세요. "
-               "PROJECT 는 프로젝트코드(…000)/명령줄로 추정합니다. "
-               "위 명령줄·사이드바의 '전체 환경변수'에서 실제 USER/MDB 가 어느 항목인지 알려주시면 자동인식에 추가합니다.")
+windows = ss.get("am_windows", [])
+if windows:
+    st.success("감지된 AM 창 %d개: %s" % (len(windows),
+               " | ".join((w.get("title") or ("pid " + str(w.get("pid")))) for w in windows)))
+    if ss.get("open_project"):
+        st.info("창 제목 기준 열린 프로젝트: **%s**  (필요하면 ② PROJECT 에서 변경)" % ss["open_project"])
+    else:
+        st.caption("창 제목에서 프로젝트 코드를 못 찾았습니다. ② PROJECT 에서 직접 선택하세요.")
 else:
-    ss["am_pid"] = None
-    ac2.info("[🔄 AM 목록 새로고침] 을 눌러 실행 중인 AM 을 선택하세요.")
+    st.info("[🔄 새로고침] 을 눌러 실행 중인 AM 을 감지하세요. (AM 창이 최소화면 복원하세요)")
+
+if ss.get("am_items"):
+    with st.expander("감지 상세 (프로젝트 후보 · 명령줄)"):
+        for a in ss["am_items"]:
+            st.write("pid %s · 추정 %s · 후보 %s"
+                     % (a["pid"], a.get("project") or "-", ", ".join(a.get("projects", [])) or "-"))
+            if a.get("cmdline"):
+                st.code(a["cmdline"], language="text")
 
 st.divider()
 st.subheader("② 추출 설정")
@@ -267,15 +265,16 @@ if st.button("📌 선택 요소 하위 모든 부재 이름 추출", use_contai
 
 # 선택 요소를 선택한 AM 의 3D 뷰에 실제로 ADD (am-exec: 그 AM 창에 명령 전송)
 if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (실행)", use_container_width=True,
-             disabled=not ss.get("am_pid")):
+             disabled=not ss.get("am_windows")):
     add_cmd = ("ADD %s" % ce) if ce else "ADD CE"
-    with st.spinner("선택한 AM(pid %s) 에 '%s' 전송 중..." % (ss.get("am_pid"), add_cmd)):
+    with st.spinner("프로젝트 '%s' 의 AM 창에 '%s' 전송 중..." % (proj_val or "?", add_cmd)):
         r = run_cli(["am-exec", "--cmd", add_cmd, "--project", proj_val or ""])
     if r.get("ok"):
-        st.success("✅ AM 에 전송 완료: %s  → AM 3D 뷰를 확인하세요." % add_cmd)
+        st.success("✅ AM 에 전송 완료: %s  → 선택한 프로젝트(%s)의 AM 3D 뷰를 확인하세요." % (add_cmd, proj_val or ""))
     else:
         st.error("전송 실패: %s" % r.get("error", ""))
         st.caption("수동 대안: AM 명령창에 아래 한 줄을 직접 입력하세요. (또는 am-add-ce.pmlmac 실행)")
         st.code(add_cmd, language="text")
-if not ss.get("am_pid"):
-    st.caption("※ 먼저 위 [실행 중인 AM 선택] 에서 작업할 AM 을 고르면 ADD 버튼이 활성화됩니다.")
+if not ss.get("am_windows"):
+    st.caption("※ 먼저 위 [🔄 새로고침] 으로 AM 창을 감지하면 ADD 버튼이 활성화됩니다. "
+               "ADD 는 선택한 PROJECT 의 창 제목을 찾아 그 AM 에 실행합니다.")

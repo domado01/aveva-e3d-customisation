@@ -156,6 +156,14 @@ namespace E3dLeafCli
                 for (int k = 0; k < codes.Count; k++) { if (k > 0) sb.Append(","); sb.Append(J(codes[k])); }
                 sb.Append("]}");
             }
+            // 실행 중인 모든 AVEVA GUI 창 (열린 프로젝트/대상 창 식별용)
+            sb.Append("],\"windows\":[");
+            List<AmWindow> wins = AmExec.ListWindows();
+            for (int w = 0; w < wins.Count; w++)
+            {
+                if (w > 0) sb.Append(",");
+                sb.Append("{\"pid\":").Append(wins[w].Pid).Append(",\"title\":").Append(J(wins[w].Title)).Append("}");
+            }
             sb.Append("]}");
             Write(resultPath, sb.ToString());
             return 0;

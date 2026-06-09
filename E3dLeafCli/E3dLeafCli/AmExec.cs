@@ -78,6 +78,14 @@ namespace E3dLeafCli
             return true;
         }
 
+        /// <summary>실행 중인 모든 AVEVA GUI 창(pid + 제목) 목록.</summary>
+        public static List<AmWindow> ListWindows()
+        {
+            List<AmWindow> r = new List<AmWindow>();
+            foreach (WinInfo w in FindAvevaWindows()) r.Add(new AmWindow { Pid = w.Pid, Title = w.Title });
+            return r;
+        }
+
         /// <summary>해당 pid 가 보이는 메인 창을 가지면 true + 제목.</summary>
         public static bool TryGetWindow(int pid, out string title)
         {
@@ -154,5 +162,11 @@ namespace E3dLeafCli
             inp[1].ki = new KEYBDINPUT { wVk = vk, wScan = 0, dwFlags = KEYEVENTF_KEYUP, time = 0, dwExtraInfo = IntPtr.Zero };
             SendInput(2, inp, Marshal.SizeOf(typeof(INPUT)));
         }
+    }
+
+    internal class AmWindow
+    {
+        public int Pid;
+        public string Title = "";
     }
 }
