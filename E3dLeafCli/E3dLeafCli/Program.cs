@@ -156,13 +156,34 @@ namespace E3dLeafCli
                 for (int k = 0; k < codes.Count; k++) { if (k > 0) sb.Append(","); sb.Append(J(codes[k])); }
                 sb.Append("]}");
             }
-            // 실행 중인 모든 AVEVA GUI 창 (열린 프로젝트/대상 창 식별용)
+            // 전체 프로젝트 코드(후보) - 창 제목/명령줄에서 매칭용
+            List<string> allCodes = new List<string>();
+            foreach (AmProc pr in procs)
+                foreach (string c in ProcessEnv.ProjectCodes(pr.Env))
+                    if (!allCodes.Contains(c)) allCodes.Add(c);
+
+            // 실행 중인 모든 AVEVA GUI 창 — 창마다 명령줄+프로젝트 추정(제목/명령줄/환경)
             sb.Append("],\"windows\":[");
             List<AmWindow> wins = AmExec.ListWindows();
             for (int w = 0; w < wins.Count; w++)
             {
+                AmWindow win = wins[w];
+                string wcmd = ProcessEnv.ReadCommandLine(win.Pid);
+                Dictionary<string, string> wenv = ProcessEnv.Read(win.Pid);
+                List<string> wcodes = ProcessEnv.ProjectCodes(wenv);
+                string wproj = GuessProject(wenv, wcmd, wcodes);
+                if (wproj == "")
+                {
+                    string hay = (win.Title + " " + wcmd).ToLowerInvariant();
+                    foreach (string c in allCodes)
+                        if (c.Length >= 2 && hay.IndexOf(c.ToLowerInvariant(), StringComparison.Ordinal) >= 0) { wproj = c; break; }
+                }
                 if (w > 0) sb.Append(",");
-                sb.Append("{\"pid\":").Append(wins[w].Pid).Append(",\"title\":").Append(J(wins[w].Title)).Append("}");
+                sb.Append("{\"pid\":").Append(win.Pid)
+                  .Append(",\"title\":").Append(J(win.Title))
+                  .Append(",\"project\":").Append(J(wproj))
+                  .Append(",\"cmdline\":").Append(J(wcmd))
+                  .Append("}");
             }
             sb.Append("]}");
             Write(resultPath, sb.ToString());

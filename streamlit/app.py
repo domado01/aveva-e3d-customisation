@@ -54,9 +54,15 @@ def run_cli(args):
     tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
     tmp.close()
     cmd = [exe] + list(args)
-    pid = st.session_state.get("am_pid")
-    if pid and args and args[0] in ("detect-env", "extract", "am-exec"):
-        cmd += ["--pid", str(pid)]
+    if args:
+        if args[0] in ("detect-env", "extract"):
+            p = st.session_state.get("am_env_pid")
+            if p:
+                cmd += ["--pid", str(p)]
+        elif args[0] == "am-exec":
+            p = st.session_state.get("am_win_pid")
+            if p:
+                cmd += ["--pid", str(p)]
     cmd += ["--result", tmp.name]
     try:
         subprocess.run(cmd, capture_output=True, timeout=600,
@@ -83,8 +89,10 @@ ss.setdefault("projects", [])
 ss.setdefault("detected", {})
 ss.setdefault("am_items", [])
 ss.setdefault("am_windows", [])
-ss.setdefault("am_pid", None)
-ss.setdefault("open_project", "")
+ss.setdefault("am_allprojects", [])
+ss.setdefault("am_env_pid", None)
+ss.setdefault("am_win_pid", None)
+ss.setdefault("sel_win_key", None)
 
 
 def detect_am():
@@ -128,8 +136,8 @@ with st.sidebar:
                 st.write("환경변수를 읽지 못했습니다.")
 
 st.subheader("🖥️ 실행 중인 AM / 프로젝트")
-st.caption("AM 1개만 떠 있어도 환경에는 정의된 모든 프로젝트가 들어있습니다. "
-           "실제 '열린 프로젝트'는 AM 창 제목으로 식별해 자동 선택하고, 후보가 여러 개면 ② PROJECT 에서 바꿉니다.")
+st.caption("감지된 AM 창을 고르면 그 창의 프로젝트로 ②③ 가 동작합니다. "
+           "창 제목/명령줄에서 프로젝트를 못 찾으면 ② PROJECT 에서 직접 선택하세요.")
 if st.button("🔄 새로고침 (AM·프로젝트 감지)", use_container_width=True):
     with st.spinner("실행 중인 AM 검색 중..."):
         r = run_cli(["list-am"])
@@ -137,51 +145,62 @@ if st.button("🔄 새로고침 (AM·프로젝트 감지)", use_container_width=
     windows = r.get("windows", []) if r.get("ok") else []
     ss["am_items"] = items
     ss["am_windows"] = windows
+    ss["am_allprojects"] = sorted({c for a in items for c in a.get("projects", []) if c})
     if items:
-        # 프로젝트 코드를 가장 많이 가진 프로세스를 환경 소스로 (env 는 프로세스 간 동일)
         env_item = sorted(items, key=lambda a: -len(a.get("projects", [])))[0]
-        ss["am_pid"] = env_item["pid"]
-        allp = sorted({c for a in items for c in a.get("projects", []) if c})
-        ss["projects"] = allp
-        # 실제 열린 프로젝트 = 창 제목에 등장하는 코드
-        titles = " ".join((w.get("title") or "") for w in windows)
-        openp = next((c for c in allp if c and c.lower() in titles.lower()), "")
-        ss["open_project"] = openp
-        if openp:
-            ss["f_project"] = openp
-        elif env_item.get("project"):
-            ss["f_project"] = env_item["project"]
-        elif allp:
-            ss["f_project"] = allp[0]
-        if env_item.get("user"):
-            ss["f_user"] = env_item["user"]
-        if env_item.get("mdb"):
-            ss["f_mdb"] = env_item["mdb"]
-        ss["detected"] = {"projectsDir": env_item.get("projectsDir", ""), "projects": allp,
-                          "env": {}, "proc": env_item.get("name", "")}
+        ss["am_env_pid"] = env_item["pid"]
+        ss["env_user"] = env_item.get("user", "")
+        ss["env_mdb"] = env_item.get("mdb", "")
+        ss["detected"] = {"projectsDir": env_item.get("projectsDir", ""),
+                          "projects": ss["am_allprojects"], "env": {}, "proc": env_item.get("name", "")}
     else:
-        ss["am_pid"] = None
-        st.warning("실행 중인 AM 을 찾지 못했습니다. AM 로그인 상태 / 같은 사용자(또는 관리자) 실행을 확인하세요. %s"
+        ss["am_env_pid"] = None
+    ss["sel_win_key"] = None  # 자동채움 재적용
+    if not windows and not items:
+        st.warning("실행 중인 AM 을 찾지 못했습니다. AM 로그인 / 같은 사용자(또는 관리자) 실행을 확인하세요. %s"
                    % (r.get("error", "") or ""))
 
 windows = ss.get("am_windows", [])
+allp = ss.get("am_allprojects", [])
 if windows:
-    st.success("감지된 AM 창 %d개: %s" % (len(windows),
-               " | ".join((w.get("title") or ("pid " + str(w.get("pid")))) for w in windows)))
-    if ss.get("open_project"):
-        st.info("창 제목 기준 열린 프로젝트: **%s**  (필요하면 ② PROJECT 에서 변경)" % ss["open_project"])
+    wlabels = []
+    for w in windows:
+        t = w.get("title") or ("pid " + str(w.get("pid")))
+        if len(t) > 50:
+            t = t[:50] + "…"
+        wlabels.append("%s  [프로젝트: %s]" % (t, w.get("project") or "미상"))
+    widx = st.selectbox("감지된 AM 창 (작업 대상)", list(range(len(windows))),
+                        format_func=lambda i: wlabels[i], key="am_win_idx")
+    selwin = windows[widx]
+    ss["am_win_pid"] = selwin.get("pid")
+    winproj = selwin.get("project") or ""
+    # 선택 창이 바뀌면 ② 자동 채움 (선택창 프로젝트 우선)
+    key = "%s|%s" % (selwin.get("pid"), selwin.get("title"))
+    if ss.get("sel_win_key") != key:
+        ss["sel_win_key"] = key
+        ordered = ([winproj] if winproj else []) + [c for c in allp if c != winproj]
+        ss["projects"] = ordered if ordered else allp
+        if winproj:
+            ss["f_project"] = winproj
+        if ss.get("env_user"):
+            ss["f_user"] = ss["env_user"]
+        if ss.get("env_mdb"):
+            ss["f_mdb"] = ss["env_mdb"]
+    if winproj:
+        st.success("선택한 AM 창 → 프로젝트 **%s** (pid %s). ②③ 가 이 프로젝트/창으로 동작합니다."
+                   % (winproj, selwin.get("pid")))
     else:
-        st.caption("창 제목에서 프로젝트 코드를 못 찾았습니다. ② PROJECT 에서 직접 선택하세요.")
+        st.warning("이 AM 창의 제목/명령줄에서 프로젝트 코드를 못 찾았습니다. 아래 ② PROJECT 에서 직접 선택하세요. "
+                   "(후보: %s)" % (", ".join(allp) or "-"))
+    with st.expander("감지 상세 (선택한 창의 제목·명령줄)"):
+        st.write("pid: %s" % selwin.get("pid"))
+        st.write("제목: %s" % (selwin.get("title") or "-"))
+        if selwin.get("cmdline"):
+            st.code(selwin["cmdline"], language="text")
+        st.caption("전체 프로젝트 후보(참고): %s" % (", ".join(allp) or "-"))
 else:
+    ss["am_win_pid"] = None
     st.info("[🔄 새로고침] 을 눌러 실행 중인 AM 을 감지하세요. (AM 창이 최소화면 복원하세요)")
-
-if ss.get("am_items"):
-    with st.expander("감지 상세 (프로젝트 후보 · 명령줄)"):
-        for a in ss["am_items"]:
-            st.write("pid %s · 추정 %s · 후보 %s"
-                     % (a["pid"], a.get("project") or "-", ", ".join(a.get("projects", [])) or "-"))
-            if a.get("cmdline"):
-                st.code(a["cmdline"], language="text")
 
 st.divider()
 st.subheader("② 추출 설정")
