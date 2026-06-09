@@ -20,11 +20,20 @@ st.set_page_config(page_title="AVEVA Marine Leaf Export", page_icon="🛠️", l
 
 
 def find_cli():
-    """E3dLeafCli.exe 위치를 찾는다 (환경변수 > 후보경로 순)."""
+    """E3dLeafCli.exe 위치를 찾는다 (환경변수 > 빌드가 남긴 경로파일 > 후보경로 순)."""
     env = os.environ.get("LEAF_CLI")
     if env and os.path.isfile(env):
         return env
     here = os.path.dirname(os.path.abspath(__file__))
+    # build-cli.ps1 이 AVEVA bin 의 exe 경로를 여기에 적어둔다
+    ptr = os.path.join(here, "leaf-cli-path.txt")
+    if os.path.isfile(ptr):
+        try:
+            p = open(ptr, "r", encoding="utf-8").read().strip()
+            if p and os.path.isfile(p):
+                return p
+        except OSError:
+            pass
     candidates = [
         os.path.join(here, "E3dLeafCli.exe"),
         os.path.join(here, "..", "E3dLeafCli", "E3dLeafCli", "bin", "x86", "Release", "net48", "E3dLeafCli.exe"),
@@ -119,12 +128,13 @@ password = c3.text_input("PASSWORD (없으면 비움)", type="password", key="f_
 c4, c5, c6 = st.columns(3)
 mdb = c4.text_input("MDB", key="f_mdb")
 module = c5.text_input("MODULE_NUMBER", value=ss.get("f_module", "78"), key="f_module")
-start = c6.text_input("시작 요소 (예: /SITE-XXX 또는 =123/456)", key="f_start")
+start = c6.text_input("시작 요소 (빈칸/전체 = 모델 전체)", value=ss.get("f_start", "전체"), key="f_start",
+                      help="특정 요소만 뽑으려면 /SITE-XXX 또는 =123/456 입력. 비워두거나 '전체'면 모델 전체를 대상으로 합니다.")
 
 proj_val = project if projects else ss.get("f_project", "")
 
 run = st.button("🚀 추출 실행", type="primary", use_container_width=True,
-                disabled=not (proj_val and user and mdb and start))
+                disabled=not (proj_val and user and mdb))
 
 if run:
     with st.spinner("PDMS 세션 시작 → 로그인 → leaf 추출 중... (수 분 소요될 수 있음)"):

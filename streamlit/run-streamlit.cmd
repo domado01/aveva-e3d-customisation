@@ -10,6 +10,9 @@ setlocal
 set HERE=%~dp0
 cd /d "%HERE%"
 
+REM Restore scripts that Gmail forced to .txt (so no manual rename needed)
+if not exist "%HERE%..\E3dLeafCli\build-cli.ps1" if exist "%HERE%..\E3dLeafCli\build-cli.ps1.txt" copy /Y "%HERE%..\E3dLeafCli\build-cli.ps1.txt" "%HERE%..\E3dLeafCli\build-cli.ps1" >nul
+
 echo.
 echo [1/3] Building E3dLeafCli.exe (.NET engine)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%..\E3dLeafCli\build-cli.ps1"

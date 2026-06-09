@@ -49,4 +49,9 @@ foreach($f in @("E3dLeafCli.exe","E3dLeafCli.exe.config")){
   $src = Join-Path $outDir $f
   if (Test-Path $src) { Copy-Item $src (Join-Path $AvevaBinDir $f) -Force }
 }
-Write-Host "복사 완료 → $AvevaBinDir (app.py 가 자동으로 찾습니다)" -ForegroundColor Green
+$deployed = Join-Path $AvevaBinDir "E3dLeafCli.exe"
+Write-Host "복사 완료 → $deployed" -ForegroundColor Green
+
+# app.py 가 exe 를 확실히 찾도록 경로를 기록 (AVEVA bin 에서 실행되어야 네이티브 의존성 로드됨)
+$ptr = Join-Path $root "..\streamlit\leaf-cli-path.txt"
+try { Set-Content -Path $ptr -Value $deployed -Encoding UTF8 -NoNewline; Write-Host "경로 기록: $ptr" -ForegroundColor Green } catch {}

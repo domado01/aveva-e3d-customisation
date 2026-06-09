@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using Aveva.Pdms.Database;
 using Aveva.Pdms.Standalone;
@@ -87,8 +88,8 @@ namespace E3dLeafCli
             string project = Get(a, "project"), user = Get(a, "user"), pass = Get(a, "password"),
                    mdb = Get(a, "mdb"), start = Get(a, "start"), output = Get(a, "output");
             int module; if (!int.TryParse(Get(a, "module"), out module)) module = 78;
-            if (project == "" || user == "" || mdb == "" || start == "")
-            { Write(resultPath, "{\"ok\":false,\"error\":\"project/user/mdb/start 필요\"}"); return 1; }
+            if (project == "" || user == "" || mdb == "")
+            { Write(resultPath, "{\"ok\":false,\"error\":\"project/user/mdb 필요\"}"); return 1; }
 
             string proc;
             Dictionary<string, string> denv = ProcessEnv.FindAvevaEnv(out proc);
@@ -104,14 +105,31 @@ namespace E3dLeafCli
                 { Write(resultPath, "{\"ok\":false,\"error\":\"로그인 실패(Open=false). 자격증명/환경 확인\"}"); return 2; }
                 opened = true;
 
-                DbElement s = DbElement.GetElement(start);
-                if (s == null || !s.IsValid)
-                { Write(resultPath, "{\"ok\":false,\"error\":" + J("시작 요소 없음: " + start) + "}"); return 3; }
+                bool all = IsAll(start);
+                List<DbElement> roots = new List<DbElement>();
+                if (all)
+                {
+                    List<string> diag = new List<string>();
+                    roots = AllWorlds(diag);
+                    if (roots.Count == 0)
+                    {
+                        string d = string.Join(" || ", diag.ToArray());
+                        Write(resultPath, "{\"ok\":false,\"error\":" + J("전체(World) 자동탐색 실패. 시작 요소를 직접 입력하세요. [진단] " + d) + "}");
+                        return 4;
+                    }
+                }
+                else
+                {
+                    DbElement s = DbElement.GetElement(start);
+                    if (s == null || !s.IsValid)
+                    { Write(resultPath, "{\"ok\":false,\"error\":" + J("시작 요소 없음: " + start) + "}"); return 3; }
+                    roots.Add(s);
+                }
 
                 List<string[]> rows = new List<string[]>();
-                Collect(s, rows);
+                foreach (DbElement r in roots) Collect(r, rows);
                 if (output == "") output = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "E3D_Leaf_Export_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".txt");
-                WriteOut(output, project, mdb, start, rows);
+                WriteOut(output, project, mdb, all ? "(전체/All)" : start, rows);
 
                 StringBuilder sb = new StringBuilder();
                 sb.Append("{\"ok\":true,\"count\":").Append(rows.Count).Append(",\"file\":").Append(J(output)).Append(",\"rows\":[");
@@ -129,6 +147,111 @@ namespace E3dLeafCli
                 try { if (opened && Project.CurrentProject != null) Project.CurrentProject.Close(); } catch { }
                 try { if (started) PdmsStandalone.Finish(); } catch { }
             }
+        }
+
+        // ---- 전체(World) 자동탐색 ----
+        // start 가 빈칸/전체/ALL/* 이면 현재 MDB 의 모든 DB World 를 대상으로 한다.
+        private static bool IsAll(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return true;
+            s = s.Trim();
+            return s == "전체" || s == "*" || s == "/*" || s.Equals("ALL", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // AVEVA 버전마다 MDB/World API 명이 달라서 리플렉션으로 여러 후보를 시도.
+        // 실패 시 diag 에 후보 타입/멤버를 담아 다음 수정에 활용.
+        private static List<DbElement> AllWorlds(List<string> diag)
+        {
+            List<DbElement> worlds = new List<DbElement>();
+            Assembly asm = typeof(DbElement).Assembly;
+
+            // 시도1: MDB.Current -> Databases -> World
+            object mdb = StaticGet(asm,
+                new[] { "Aveva.Pdms.Database.Mdb", "Aveva.Pdms.Database.MDB", "Aveva.Pdms.Database.DbMdb" },
+                new[] { "CurrentMdb", "CurrentMDB", "Current", "GetCurrentMdb" });
+            if (mdb != null)
+                foreach (object db in AsEnum(InstGet(mdb, new[] { "Databases", "Dbs", "DbsInMdb", "Members", "CurrentDbs" })))
+                    AddWorld(InstGet(db, new[] { "World", "WorldElement", "GetWorld", "TopElement", "Element" }), worlds);
+
+            // 시도2: DbDatabase 정적 컬렉션 -> World
+            if (worlds.Count == 0)
+                foreach (object db in AsEnum(StaticGet(asm,
+                    new[] { "Aveva.Pdms.Database.DbDatabase", "Aveva.Pdms.Database.Database" },
+                    new[] { "CurrentDbs", "Databases", "AllDbs", "Current" })))
+                    AddWorld(InstGet(db, new[] { "World", "WorldElement", "GetWorld", "TopElement", "Element" }), worlds);
+
+            // 실패 진단: Mdb/World/Database 관련 타입+무인자 멤버 덤프
+            if (worlds.Count == 0)
+            {
+                try
+                {
+                    foreach (Type t in asm.GetTypes())
+                    {
+                        string n = t.Name;
+                        if (n.IndexOf("Mdb", StringComparison.OrdinalIgnoreCase) < 0 &&
+                            n.IndexOf("World", StringComparison.OrdinalIgnoreCase) < 0 &&
+                            n != "DbDatabase") continue;
+                        List<string> mem = new List<string>();
+                        foreach (PropertyInfo p in t.GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)) mem.Add(p.Name);
+                        foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
+                            if (!m.IsSpecialName && m.GetParameters().Length == 0) mem.Add(m.Name + "()");
+                        diag.Add(t.FullName + ": " + string.Join(",", mem.GetRange(0, Math.Min(mem.Count, 14)).ToArray()));
+                    }
+                }
+                catch (Exception ex) { diag.Add("dump err:" + ex.Message); }
+            }
+            return worlds;
+        }
+
+        private static object StaticGet(Assembly asm, string[] typeNames, string[] members)
+        {
+            foreach (string tn in typeNames)
+            {
+                Type t = asm.GetType(tn); if (t == null) continue;
+                foreach (string mn in members)
+                {
+                    try
+                    {
+                        PropertyInfo p = t.GetProperty(mn, BindingFlags.Public | BindingFlags.Static);
+                        if (p != null) { object v = p.GetValue(null, null); if (v != null) return v; }
+                        MethodInfo m = t.GetMethod(mn, BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
+                        if (m != null) { object v = m.Invoke(null, null); if (v != null) return v; }
+                    }
+                    catch { }
+                }
+            }
+            return null;
+        }
+        private static object InstGet(object obj, string[] members)
+        {
+            if (obj == null) return null;
+            Type t = obj.GetType();
+            foreach (string mn in members)
+            {
+                try
+                {
+                    PropertyInfo p = t.GetProperty(mn, BindingFlags.Public | BindingFlags.Instance);
+                    if (p != null) { object v = p.GetValue(obj, null); if (v != null) return v; }
+                    MethodInfo m = t.GetMethod(mn, BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+                    if (m != null) { object v = m.Invoke(obj, null); if (v != null) return v; }
+                }
+                catch { }
+            }
+            return null;
+        }
+        private static IEnumerable AsEnum(object o)
+        {
+            if (o == null) return new object[0];
+            if (o is string) return new object[0];
+            IEnumerable e = o as IEnumerable;
+            if (e != null) return e;
+            return new object[] { o };
+        }
+        private static void AddWorld(object w, List<DbElement> worlds)
+        {
+            if (!(w is DbElement)) return;
+            DbElement de = (DbElement)w;
+            try { if (de.IsValid) worlds.Add(de); } catch { }
         }
 
         // ---- 추출 로직 ----
