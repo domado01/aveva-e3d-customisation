@@ -78,27 +78,33 @@ ss = st.session_state
 ss.setdefault("projects", [])
 ss.setdefault("detected", {})
 
+
+def detect_am():
+    """실행 중(마지막 활성) AM 환경을 읽어 PROJECT/USER/MDB 를 폼에 자동 채운다."""
+    with st.spinner("실행 중인 AM/PDMS 환경을 읽는 중..."):
+        d = run_cli(["detect-env"])
+    if d.get("ok"):
+        ss["detected"] = d
+        ss["projects"] = d.get("projects", [])
+        if d.get("project"):
+            ss["f_project"] = d["project"]
+        elif d.get("projects"):
+            ss["f_project"] = d["projects"][0]
+        if d.get("user"):
+            ss["f_user"] = d["user"]
+        if d.get("mdb"):
+            ss["f_mdb"] = d["mdb"]
+        st.success("감지 완료: %s (PROJECT/USER/MDB 자동 입력)" % (d.get("proc") or "AVEVA process"))
+    else:
+        st.error(d.get("error", "감지 실패. AM 이 실행 중인지, 권한(같은 사용자/관리자)인지 확인하세요."))
+    return d
+
+
 with st.sidebar:
     st.header("① AM 환경 감지")
     st.write("실행 중인 AM/PDMS 에서 프로젝트·USER·MDB 를 읽어와 자동으로 채웁니다.")
     if st.button("🔍 AM 환경 자동 감지", use_container_width=True):
-        with st.spinner("실행 중인 AM/PDMS 환경을 읽는 중..."):
-            d = run_cli(["detect-env"])
-        if d.get("ok"):
-            ss["detected"] = d
-            ss["projects"] = d.get("projects", [])
-            # 폼 기본값 자동 채움
-            if d.get("project"):
-                ss["f_project"] = d["project"]
-            elif d.get("projects"):
-                ss["f_project"] = d["projects"][0]
-            if d.get("user"):
-                ss["f_user"] = d["user"]
-            if d.get("mdb"):
-                ss["f_mdb"] = d["mdb"]
-            st.success("감지 완료: %s" % (d.get("proc") or "AVEVA process"))
-        else:
-            st.error(d.get("error", "감지 실패. AM 이 실행 중인지, 권한(같은 사용자/관리자)인지 확인하세요."))
+        detect_am()
 
     det = ss.get("detected", {})
     if det:
@@ -114,6 +120,9 @@ with st.sidebar:
                 st.write("환경변수를 읽지 못했습니다.")
 
 st.subheader("② 추출 설정")
+if st.button("🔄 마지막 AM 정보 자동입력",
+             help="실행 중(마지막 활성) AM 에서 PROJECT/USER/MDB 를 읽어 아래 칸을 채웁니다."):
+    detect_am()
 c1, c2, c3 = st.columns(3)
 projects = ss.get("projects", [])
 if projects:
