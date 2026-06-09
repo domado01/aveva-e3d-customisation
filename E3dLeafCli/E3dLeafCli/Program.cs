@@ -51,10 +51,10 @@ namespace E3dLeafCli
             else { env = ProcessEnv.FindAvevaEnv(out proc); }
             List<string> codes = ProcessEnv.ProjectCodes(env);
 
-            // USER / MDB 후보를 환경에서 추출 (AM 이 설정한 변수명이 다양하므로 여러 후보 + 부분일치)
-            string user = FirstEnv(env, new[] { "PDMSUSER", "AVEVA_USER", "LOGIN_USER", "CURRENT_USER", "USER", "USERNAME" });
-            string mdb = FirstEnv(env, new[] { "MDB", "CURRENTMDB", "CURRENT_MDB", "PDMSMDB", "MDBNAME" });
-            if (mdb == "") mdb = FirstEnvContains(env, "MDB");
+            // USER / MDB 후보 (경로/공백/과길이 값은 제외 — 짧은 식별자만)
+            string user = CleanFirstEnv(env, UserKeys);
+            string mdb = CleanFirstEnv(env, MdbKeys);
+            if (mdb == "") mdb = CleanFirstContains(env, "MDB");
             // 현재 프로젝트: 명령줄/환경 기반 추정 (AAA 같은 템플릿 코드가 앞서지 않도록)
             string curProj = GuessProject(env, cmd, codes);
 
@@ -65,6 +65,7 @@ namespace E3dLeafCli
             sb.Append(",\"project\":").Append(J(curProj));
             sb.Append(",\"user\":").Append(J(user));
             sb.Append(",\"mdb\":").Append(J(mdb));
+            sb.Append(",\"cmdline\":").Append(J(cmd));
             sb.Append(",\"envCount\":").Append(env.Count);
             sb.Append(",\"projects\":[");
             for (int i = 0; i < codes.Count; i++) { if (i > 0) sb.Append(","); sb.Append(J(codes[i])); }
@@ -88,6 +89,29 @@ namespace E3dLeafCli
                 if (kv.Key.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0 && kv.Value != "" && kv.Value.Length < 40) return kv.Value;
             return "";
         }
+
+        // USER/MDB/PROJECT 는 짧은 식별자여야 한다. 폴더경로(\ / :)·공백·과길이 값은 거른다.
+        // (AM 이 USER/MDB 를 환경변수로 깔끔히 노출하지 않아, 경로값이 잘못 잡히던 문제 방지)
+        private static bool IsCleanId(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return false;
+            if (v.Length > 31) return false;
+            if (v.IndexOf('\\') >= 0 || v.IndexOf('/') >= 0 || v.IndexOf(':') >= 0 || v.IndexOf(' ') >= 0) return false;
+            return true;
+        }
+        private static string CleanFirstEnv(Dictionary<string, string> env, string[] keys)
+        {
+            foreach (string k in keys) { string v; if (env.TryGetValue(k, out v) && IsCleanId(v)) return v; }
+            return "";
+        }
+        private static string CleanFirstContains(Dictionary<string, string> env, string part)
+        {
+            foreach (KeyValuePair<string, string> kv in env)
+                if (kv.Key.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0 && IsCleanId(kv.Value)) return kv.Value;
+            return "";
+        }
+        private static readonly string[] UserKeys = { "PDMSUSER", "AVEVA_USER", "AVEVA_DESIGN_USER", "LOGIN_USER", "CURRENT_USER", "PDMS_USER" };
+        private static readonly string[] MdbKeys = { "MDB", "CURRENTMDB", "CURRENT_MDB", "PDMSMDB", "MDBNAME" };
 
         // 현재 프로젝트 코드 추정: ① 명령줄에 등장하는 코드 ② PROJ/PROJECT 환경값이 코드목록에 있으면
         // ③ 템플릿스러운 AAA 회피 후 첫 코드.  (AAA000 같은 샘플 evar 가 앞서는 문제 방지)
@@ -113,9 +137,9 @@ namespace E3dLeafCli
                 AmProc pr = procs[i];
                 List<string> codes = ProcessEnv.ProjectCodes(pr.Env);
                 string guess = GuessProject(pr.Env, pr.CmdLine, codes);
-                string user = FirstEnv(pr.Env, new[] { "PDMSUSER", "AVEVA_USER", "LOGIN_USER", "CURRENT_USER", "USER", "USERNAME" });
-                string mdb = FirstEnv(pr.Env, new[] { "MDB", "CURRENTMDB", "CURRENT_MDB", "PDMSMDB", "MDBNAME" });
-                if (mdb == "") mdb = FirstEnvContains(pr.Env, "MDB");
+                string user = CleanFirstEnv(pr.Env, UserKeys);
+                string mdb = CleanFirstEnv(pr.Env, MdbKeys);
+                if (mdb == "") mdb = CleanFirstContains(pr.Env, "MDB");
                 if (i > 0) sb.Append(",");
                 sb.Append("{\"pid\":").Append(pr.Pid)
                   .Append(",\"name\":").Append(J(pr.Name))
@@ -124,6 +148,7 @@ namespace E3dLeafCli
                   .Append(",\"projectsDir\":").Append(J(pr.Env.ContainsKey("projects_dir") ? pr.Env["projects_dir"] : ""))
                   .Append(",\"user\":").Append(J(user))
                   .Append(",\"mdb\":").Append(J(mdb))
+                  .Append(",\"cmdline\":").Append(J(pr.CmdLine))
                   .Append(",\"projects\":[");
                 for (int k = 0; k < codes.Count; k++) { if (k > 0) sb.Append(","); sb.Append(J(codes[k])); }
                 sb.Append("]}");

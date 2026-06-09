@@ -160,6 +160,12 @@ if am_list:
                           "env": {}, "proc": chosen.get("name", "")}
     st.success("선택됨 → pid %s | 프로젝트 %s | USER %s | MDB %s"
                % (chosen["pid"], chosen.get("project") or "-", chosen.get("user") or "-", chosen.get("mdb") or "-"))
+    if chosen.get("cmdline"):
+        with st.expander("선택한 AM 의 원시 명령줄 보기 (값 확인용)"):
+            st.code(chosen["cmdline"], language="text")
+    st.caption("※ AM 은 USER/MDB 를 환경변수로 깔끔히 노출하지 않습니다. 비어 있으면 ②에서 직접 입력하세요. "
+               "PROJECT 는 프로젝트코드(…000)/명령줄로 추정합니다. "
+               "위 명령줄·사이드바의 '전체 환경변수'에서 실제 USER/MDB 가 어느 항목인지 알려주시면 자동인식에 추가합니다.")
 else:
     ss["am_pid"] = None
     ac2.info("[🔄 AM 목록 새로고침] 을 눌러 실행 중인 AM 을 선택하세요.")
