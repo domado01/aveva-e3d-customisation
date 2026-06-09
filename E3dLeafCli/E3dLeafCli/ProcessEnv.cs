@@ -100,5 +100,71 @@ namespace E3dLeafCli
             codes.Sort();
             return codes;
         }
+
+        /// <summary>주어진 pid 의 명령줄(CommandLine)을 PEB 에서 읽는다. (어떤 프로젝트로 띄웠는지 추정용)</summary>
+        public static string ReadCommandLine(int pid)
+        {
+            IntPtr h = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+            if (h == IntPtr.Zero) return "";
+            try
+            {
+                PROCESS_BASIC_INFORMATION pbi = new PROCESS_BASIC_INFORMATION();
+                int ret;
+                if (NtQueryInformationProcess(h, 0, ref pbi, Marshal.SizeOf(pbi), out ret) != 0) return "";
+                IntPtr procParams = ReadPtr32(h, pbi.PebBaseAddress, 0x10);
+                if (procParams == IntPtr.Zero) return "";
+                // 32비트 RTL_USER_PROCESS_PARAMETERS: +0x40 CommandLine (UNICODE_STRING)
+                return ReadUnicodeString(h, procParams, 0x40);
+            }
+            catch { return ""; }
+            finally { CloseHandle(h); }
+        }
+
+        private static string ReadUnicodeString(IntPtr h, IntPtr baseAddr, int offset)
+        {
+            byte[] lenBuf = new byte[4]; int read;
+            if (!ReadProcessMemory(h, (IntPtr)(baseAddr.ToInt64() + offset), lenBuf, 4, out read) || read != 4) return "";
+            int length = BitConverter.ToUInt16(lenBuf, 0);
+            if (length <= 0) return "";
+            if (length > 32768) length = 32768;
+            IntPtr buf = ReadPtr32(h, baseAddr, offset + 4);
+            if (buf == IntPtr.Zero) return "";
+            byte[] data = new byte[length];
+            if (!ReadProcessMemory(h, buf, data, length, out read) || read <= 0) return "";
+            return Encoding.Unicode.GetString(data, 0, read);
+        }
+
+        /// <summary>실행 중인 모든 AVEVA(프로젝트 환경 보유) 프로세스를 나열.</summary>
+        public static List<AmProc> ListAm()
+        {
+            List<AmProc> list = new List<AmProc>();
+            foreach (Process p in Process.GetProcesses())
+            {
+                string path;
+                try { path = (p.MainModule != null) ? p.MainModule.FileName : ""; }
+                catch { continue; }
+                if (string.IsNullOrEmpty(path) || path.IndexOf("AVEVA", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                Dictionary<string, string> env = Read(p.Id);
+                if (env.Count == 0) continue;
+                if (!(env.ContainsKey("projects_dir") || HasProjectVar(env))) continue;
+                list.Add(new AmProc { Pid = p.Id, Name = p.ProcessName, Path = path, Env = env, CmdLine = ReadCommandLine(p.Id) });
+            }
+            return list;
+        }
+
+        /// <summary>pid 의 프로세스 이름(실패 시 빈 문자열).</summary>
+        public static string ProcName(int pid)
+        {
+            try { return Process.GetProcessById(pid).ProcessName; } catch { return ""; }
+        }
+    }
+
+    internal class AmProc
+    {
+        public int Pid;
+        public string Name = "";
+        public string Path = "";
+        public Dictionary<string, string> Env;
+        public string CmdLine = "";
     }
 }

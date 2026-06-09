@@ -28,9 +28,11 @@ namespace E3dLeafCli
                 if (resultPath == "") resultPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "leaf-result.json");
                 string mode = args.Length > 0 ? args[0].ToLowerInvariant() : "";
 
-                if (mode == "detect-env") return DetectEnv(resultPath);
+                if (mode == "list-am") return ListAmMode(resultPath);
+                if (mode == "detect-env") return DetectEnv(a, resultPath);
                 if (mode == "extract") return Extract(a, resultPath);
-                Write(resultPath, "{\"ok\":false,\"error\":\"unknown mode. use detect-env | extract\"}");
+                if (mode == "am-exec") return AmExecMode(a, resultPath);
+                Write(resultPath, "{\"ok\":false,\"error\":\"unknown mode. use list-am | detect-env | extract | am-exec\"}");
                 return 1;
             }
             catch (Exception ex)
@@ -40,17 +42,21 @@ namespace E3dLeafCli
             }
         }
 
-        private static int DetectEnv(string resultPath)
+        private static int DetectEnv(Dictionary<string, string> a, string resultPath)
         {
-            string proc;
-            Dictionary<string, string> env = ProcessEnv.FindAvevaEnv(out proc);
+            int pid; int.TryParse(Get(a, "pid"), out pid);
+            string proc = ""; string cmd = "";
+            Dictionary<string, string> env;
+            if (pid > 0) { env = ProcessEnv.Read(pid); proc = ProcessEnv.ProcName(pid); cmd = ProcessEnv.ReadCommandLine(pid); }
+            else { env = ProcessEnv.FindAvevaEnv(out proc); }
             List<string> codes = ProcessEnv.ProjectCodes(env);
 
             // USER / MDB 후보를 환경에서 추출 (AM 이 설정한 변수명이 다양하므로 여러 후보 + 부분일치)
             string user = FirstEnv(env, new[] { "PDMSUSER", "AVEVA_USER", "LOGIN_USER", "CURRENT_USER", "USER", "USERNAME" });
             string mdb = FirstEnv(env, new[] { "MDB", "CURRENTMDB", "CURRENT_MDB", "PDMSMDB", "MDBNAME" });
             if (mdb == "") mdb = FirstEnvContains(env, "MDB");
-            string curProj = FirstEnv(env, new[] { "PROJ", "PROJECT", "CURRENTPROJECT", "CURRENT_PROJECT", "PDMSPROJ" });
+            // 현재 프로젝트: 명령줄/환경 기반 추정 (AAA 같은 템플릿 코드가 앞서지 않도록)
+            string curProj = GuessProject(env, cmd, codes);
 
             StringBuilder sb = new StringBuilder();
             sb.Append("{\"ok\":").Append(env.Count > 0 ? "true" : "false");
@@ -83,6 +89,63 @@ namespace E3dLeafCli
             return "";
         }
 
+        // 현재 프로젝트 코드 추정: ① 명령줄에 등장하는 코드 ② PROJ/PROJECT 환경값이 코드목록에 있으면
+        // ③ 템플릿스러운 AAA 회피 후 첫 코드.  (AAA000 같은 샘플 evar 가 앞서는 문제 방지)
+        private static string GuessProject(Dictionary<string, string> env, string cmd, List<string> codes)
+        {
+            if (!string.IsNullOrEmpty(cmd))
+                foreach (string c in codes)
+                    if (c.Length >= 2 && cmd.IndexOf(c, StringComparison.OrdinalIgnoreCase) >= 0) return c;
+            string h = FirstEnv(env, new[] { "PROJ", "PROJECT", "CURRENTPROJECT", "CURRENT_PROJECT", "PDMSPROJ" });
+            if (h != "" && codes.Contains(h)) return h;
+            foreach (string c in codes) if (!c.Equals("AAA", StringComparison.OrdinalIgnoreCase)) return c;
+            return codes.Count > 0 ? codes[0] : "";
+        }
+
+        // 실행 중인 AM 목록 (pid/이름/경로/프로젝트코드/추정프로젝트/USER/MDB)
+        private static int ListAmMode(string resultPath)
+        {
+            List<AmProc> procs = ProcessEnv.ListAm();
+            StringBuilder sb = new StringBuilder();
+            sb.Append("{\"ok\":").Append(procs.Count > 0 ? "true" : "false").Append(",\"items\":[");
+            for (int i = 0; i < procs.Count; i++)
+            {
+                AmProc pr = procs[i];
+                List<string> codes = ProcessEnv.ProjectCodes(pr.Env);
+                string guess = GuessProject(pr.Env, pr.CmdLine, codes);
+                string user = FirstEnv(pr.Env, new[] { "PDMSUSER", "AVEVA_USER", "LOGIN_USER", "CURRENT_USER", "USER", "USERNAME" });
+                string mdb = FirstEnv(pr.Env, new[] { "MDB", "CURRENTMDB", "CURRENT_MDB", "PDMSMDB", "MDBNAME" });
+                if (mdb == "") mdb = FirstEnvContains(pr.Env, "MDB");
+                if (i > 0) sb.Append(",");
+                sb.Append("{\"pid\":").Append(pr.Pid)
+                  .Append(",\"name\":").Append(J(pr.Name))
+                  .Append(",\"path\":").Append(J(pr.Path))
+                  .Append(",\"project\":").Append(J(guess))
+                  .Append(",\"projectsDir\":").Append(J(pr.Env.ContainsKey("projects_dir") ? pr.Env["projects_dir"] : ""))
+                  .Append(",\"user\":").Append(J(user))
+                  .Append(",\"mdb\":").Append(J(mdb))
+                  .Append(",\"projects\":[");
+                for (int k = 0; k < codes.Count; k++) { if (k > 0) sb.Append(","); sb.Append(J(codes[k])); }
+                sb.Append("]}");
+            }
+            sb.Append("]}");
+            Write(resultPath, sb.ToString());
+            return 0;
+        }
+
+        // 선택한 AM 창에 명령을 실제로 전송 (예: ADD CE → 3D 뷰에 추가)
+        private static int AmExecMode(Dictionary<string, string> a, string resultPath)
+        {
+            int pid; int.TryParse(Get(a, "pid"), out pid);
+            string cmd = Get(a, "cmd");
+            if (pid <= 0 || cmd == "")
+            { Write(resultPath, "{\"ok\":false,\"error\":\"pid/cmd 필요\"}"); return 1; }
+            string err;
+            bool ok = AmExec.Exec(pid, cmd, out err);
+            Write(resultPath, ok ? ("{\"ok\":true,\"sent\":" + J(cmd) + "}") : ("{\"ok\":false,\"error\":" + J(err) + "}"));
+            return ok ? 0 : 2;
+        }
+
         private static int Extract(Dictionary<string, string> a, string resultPath)
         {
             string project = Get(a, "project"), user = Get(a, "user"), pass = Get(a, "password"),
@@ -91,8 +154,9 @@ namespace E3dLeafCli
             if (project == "" || user == "" || mdb == "")
             { Write(resultPath, "{\"ok\":false,\"error\":\"project/user/mdb 필요\"}"); return 1; }
 
-            string proc;
-            Dictionary<string, string> denv = ProcessEnv.FindAvevaEnv(out proc);
+            int pid; int.TryParse(Get(a, "pid"), out pid);
+            string proc = "";
+            Dictionary<string, string> denv = (pid > 0) ? ProcessEnv.Read(pid) : ProcessEnv.FindAvevaEnv(out proc);
             Hashtable env = new Hashtable();
             foreach (KeyValuePair<string, string> kv in denv) { env[kv.Key] = kv.Value; Environment.SetEnvironmentVariable(kv.Key, kv.Value); }
             SetupPdms(env);

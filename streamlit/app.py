@@ -53,7 +53,11 @@ def run_cli(args):
         return {"ok": False, "error": "E3dLeafCli.exe 를 찾을 수 없습니다. LEAF_CLI 환경변수로 경로를 지정하거나 빌드 후 app.py 옆에 두세요."}
     tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
     tmp.close()
-    cmd = [exe] + args + ["--result", tmp.name]
+    cmd = [exe] + list(args)
+    pid = st.session_state.get("am_pid")
+    if pid and args and args[0] in ("detect-env", "extract", "am-exec"):
+        cmd += ["--pid", str(pid)]
+    cmd += ["--result", tmp.name]
     try:
         subprocess.run(cmd, capture_output=True, timeout=600,
                        cwd=os.path.dirname(exe))  # exe 옆 attlib.dat 등 사용
@@ -77,6 +81,9 @@ st.caption("최하위(leaf) 모델 요소의 Name / Ref 를 추출합니다. AM/
 ss = st.session_state
 ss.setdefault("projects", [])
 ss.setdefault("detected", {})
+ss.setdefault("am_list", [])
+ss.setdefault("am_pid", None)
+ss.setdefault("am_pid_prev", None)
 
 
 def detect_am():
@@ -119,6 +126,45 @@ with st.sidebar:
             else:
                 st.write("환경변수를 읽지 못했습니다.")
 
+st.subheader("🖥️ 실행 중인 AM 선택")
+st.caption("여러 AM 이 떠 있을 때 작업할 AM 을 고릅니다. 이후 모든 기능이 이 AM 의 환경/창을 통해 동작합니다.")
+ac1, ac2 = st.columns([1, 3])
+if ac1.button("🔄 AM 목록 새로고침", use_container_width=True):
+    with st.spinner("실행 중인 AM 검색 중..."):
+        r = run_cli(["list-am"])
+    ss["am_list"] = r.get("items", []) if r.get("ok") else []
+    if not ss["am_list"]:
+        st.warning("실행 중인 AM(프로젝트 환경 보유)을 찾지 못했습니다. AM 이 켜져 로그인됐는지, "
+                   "그리고 같은 사용자(또는 관리자 권한)로 실행했는지 확인하세요. %s" % (r.get("error", "") or ""))
+
+am_list = ss.get("am_list", [])
+if am_list:
+    labels = ["pid %s · 프로젝트 %s · %s" % (a["pid"], a.get("project") or "?", a.get("name")) for a in am_list]
+    sel = ac2.selectbox("작업할 AM", list(range(len(am_list))),
+                        format_func=lambda i: labels[i], key="am_sel_idx")
+    chosen = am_list[sel]
+    ss["am_pid"] = chosen["pid"]
+    # 선택이 바뀌면 그 AM 기준으로 PROJECT/USER/MDB 자동 채움 (AAA 같은 템플릿 방지: project 는 추정값)
+    if ss.get("am_pid_prev") != chosen["pid"]:
+        ss["am_pid_prev"] = chosen["pid"]
+        ss["projects"] = chosen.get("projects", [])
+        if chosen.get("project"):
+            ss["f_project"] = chosen["project"]
+        elif chosen.get("projects"):
+            ss["f_project"] = chosen["projects"][0]
+        if chosen.get("user"):
+            ss["f_user"] = chosen["user"]
+        if chosen.get("mdb"):
+            ss["f_mdb"] = chosen["mdb"]
+        ss["detected"] = {"projectsDir": chosen.get("projectsDir", ""), "projects": chosen.get("projects", []),
+                          "env": {}, "proc": chosen.get("name", "")}
+    st.success("선택됨 → pid %s | 프로젝트 %s | USER %s | MDB %s"
+               % (chosen["pid"], chosen.get("project") or "-", chosen.get("user") or "-", chosen.get("mdb") or "-"))
+else:
+    ss["am_pid"] = None
+    ac2.info("[🔄 AM 목록 새로고침] 을 눌러 실행 중인 AM 을 선택하세요.")
+
+st.divider()
 st.subheader("② 추출 설정")
 if st.button("🔄 마지막 AM 정보 자동입력",
              help="실행 중(마지막 활성) AM 에서 PROJECT/USER/MDB 를 읽어 아래 칸을 채웁니다."):
@@ -198,10 +244,17 @@ if st.button("📌 선택 요소 하위 모든 부재 이름 추출", use_contai
              disabled=not (proj_val and user and mdb and ce)):
     run_extract(ce, "선택 요소(%s) 하위 추출 중..." % ce)
 
-# 선택 요소를 AM 3D 뷰(드로우리스트)에 ADD — AM 내부 동작이라 명령을 만들어 안내
-if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (명령 만들기)", use_container_width=True):
+# 선택 요소를 선택한 AM 의 3D 뷰에 실제로 ADD (am-exec: 그 AM 창에 명령 전송)
+if st.button("🖼️ 선택 요소를 3D 뷰에 ADD (실행)", use_container_width=True,
+             disabled=not ss.get("am_pid")):
     add_cmd = ("ADD %s" % ce) if ce else "ADD CE"
-    st.code(add_cmd, language="text")
-    st.caption("이 한 줄을 AM 명령창에 붙여넣으면 선택 요소가 3D 뷰(드로우리스트)에 추가됩니다. "
-               "한 번에 하려면 AM 에서 am-add-ce.pmlmac 매크로를 실행하세요 (현재 선택요소 CE 를 뷰에 ADD). "
-               "※ 3D 뷰 조작은 실행 중인 AM 내부에서만 가능해 웹에서 직접 추가할 수 없습니다.")
+    with st.spinner("선택한 AM(pid %s) 에 '%s' 전송 중..." % (ss.get("am_pid"), add_cmd)):
+        r = run_cli(["am-exec", "--cmd", add_cmd])
+    if r.get("ok"):
+        st.success("✅ AM 에 전송 완료: %s  → AM 3D 뷰를 확인하세요." % add_cmd)
+    else:
+        st.error("전송 실패: %s" % r.get("error", ""))
+        st.caption("수동 대안: AM 명령창에 아래 한 줄을 직접 입력하세요. (또는 am-add-ce.pmlmac 실행)")
+        st.code(add_cmd, language="text")
+if not ss.get("am_pid"):
+    st.caption("※ 먼저 위 [실행 중인 AM 선택] 에서 작업할 AM 을 고르면 ADD 버튼이 활성화됩니다.")
