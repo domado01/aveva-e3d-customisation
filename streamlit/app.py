@@ -80,6 +80,67 @@ def run_cli(args):
             pass
 
 
+# ===== 애드인 파일 브리지 (AM 내부 API) =====
+import time
+import uuid
+
+ADDIN_DIR = r"C:\Users\Public\Documents"
+ADDIN_REQ = os.path.join(ADDIN_DIR, "leaf_req.txt")
+ADDIN_RESP = os.path.join(ADDIN_DIR, "leaf_resp.json")
+ADDIN_STATUS = os.path.join(ADDIN_DIR, "leaf_addin_status.txt")
+
+
+def addin_available():
+    return os.path.isfile(ADDIN_STATUS)
+
+
+def addin_call(cmd, timeout=60, **kwargs):
+    """요청 파일을 쓰고 응답 JSON 을 폴링해서 반환. 애드인이 AM UI 스레드에서 처리."""
+    rid = uuid.uuid4().hex
+    lines = ["id=%s" % rid, "cmd=%s" % cmd]
+    for k, v in kwargs.items():
+        lines.append("%s=%s" % (k, v))
+    try:
+        os.remove(ADDIN_RESP)
+    except OSError:
+        pass
+    try:
+        with open(ADDIN_REQ, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except OSError as ex:
+        return {"ok": False, "error": "요청 파일을 쓰지 못함: %s" % ex}
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if os.path.isfile(ADDIN_RESP):
+            try:
+                data = json.load(open(ADDIN_RESP, "r", encoding="utf-8"))
+            except Exception:
+                time.sleep(0.2)
+                continue
+            if data.get("id") == rid or "id" not in data:
+                return data
+        time.sleep(0.25)
+    return {"ok": False, "error": "애드인 응답 시간초과(%ds). AM 에 E3dLeafAddin 이 로드됐는지 확인하세요." % timeout}
+
+
+def show_result(res):
+    if res.get("ok"):
+        rows = res.get("rows", [])
+        st.success("✅ 부재(leaf) %d 개 추출 완료" % res.get("count", len(rows)))
+        if rows:
+            st.dataframe(rows, use_container_width=True, height=480)
+        fpath = res.get("file", "")
+        if fpath and os.path.isfile(fpath):
+            with open(fpath, "rb") as f:
+                st.download_button("⬇️ 결과 TXT 다운로드", f.read(),
+                                   file_name=os.path.basename(fpath), mime="text/plain",
+                                   use_container_width=True)
+        if fpath:
+            st.caption("저장 경로: %s" % fpath)
+    else:
+        st.error("추출 실패: %s" % res.get("error", "알 수 없는 오류"))
+
+
 # ---------- UI ----------
 st.title("🛠️ AVEVA Marine — Leaf Export")
 st.caption("최하위(leaf) 모델 요소의 Name / Ref 를 추출합니다. AM/PDMS 가 실행·로그인된 상태에서 사용하세요.")
@@ -95,6 +156,44 @@ ss.setdefault("am_win_pid", None)
 ss.setdefault("sel_win_key", None)
 ss.setdefault("cmd_class", "WindowsForms10.Window.8.app.0.34f5582_r33_ad1")
 ss.setdefault("am_children", [])
+
+# ===== 애드인(권장: AM 내부 API) =====
+if addin_available():
+    st.success("🔌 E3dLeafAddin 연결됨 — AM 내부 API 사용(키 입력/창 제어 불필요, 가장 안정적).")
+else:
+    st.warning("🔌 E3dLeafAddin 미연결 — AM 에 애드인을 등록하면(동봉 ADDIN_README) 세션/추출/ADD 가 "
+               "키 입력 없이 정확히 동작합니다. 등록 전에는 아래 ②③ standalone 방식으로 사용하세요.")
+
+with st.expander("🔌 애드인 기능 (세션 · 추출 · ADD)", expanded=addin_available()):
+    aa1, aa2, aa3 = st.columns(3)
+    if aa1.button("세션 불러오기", use_container_width=True, key="ad_sess"):
+        d = addin_call("session", timeout=20)
+        if d.get("ok"):
+            pj = d.get("project") or ""
+            if pj:
+                if pj not in ss.get("projects", []):
+                    ss["projects"] = [pj] + [c for c in ss.get("projects", []) if c != pj]
+                ss["f_project"] = pj
+            if d.get("user"):
+                ss["f_user"] = d["user"]
+            if d.get("mdb"):
+                ss["f_mdb"] = d["mdb"]
+            if d.get("ce"):
+                ss["f_ce"] = d["ce"]
+            st.success("세션 → PROJECT=%s · USER=%s · MDB=%s · CE=%s"
+                       % (d.get("project") or "-", d.get("user") or "-", d.get("mdb") or "-", d.get("ce") or "-"))
+        else:
+            st.error(d.get("error"))
+    if aa2.button("현재요소 하위 추출", use_container_width=True, key="ad_extract"):
+        with st.spinner("애드인에서 추출 중..."):
+            d = addin_call("extract", start="CE", timeout=180)
+        show_result(d)
+    if aa3.button("선택요소 3D뷰 ADD", use_container_width=True, key="ad_add"):
+        d = addin_call("add", arg="CE", timeout=20)
+        if d.get("ok"):
+            st.success("✅ ADD 전송: %s — AM 3D 뷰를 확인하세요." % d.get("sent", "ADD CE"))
+        else:
+            st.error(d.get("error"))
 
 
 def detect_am():

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- AM 안에 로드되는 애드인 = 클래스 라이브러리(DLL) -->
+    <OutputType>Library</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>E3dLeafAddin</AssemblyName>
+    <RootNamespace>E3dLeafAddin</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <!-- AM 이 자체 폴더에서 AVEVA dll 을 로드하므로 참조본은 복사하지 않음 -->
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AvevaBinDir Condition="'$(AvevaBinDir)' == ''">C:\AVEVA\Marine\OH12.1.SP5\</AvevaBinDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <!-- AVEVA 애드인/DB API. 애드인 인터페이스 어셈블리 이름은 설치본에 따라
+       Aveva.ApplicationFramework.dll 입니다. 없으면 빌드시 알려주세요. -->
+  <ItemGroup>
+    <Reference Include="Aveva.ApplicationFramework">
+      <HintPath>$(AvevaBinDir)Aveva.ApplicationFramework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Aveva.Pdms.Database">
+      <HintPath>$(AvevaBinDir)Aveva.Pdms.Database.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
