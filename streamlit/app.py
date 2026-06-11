@@ -13,10 +13,56 @@ import json
 import os
 import subprocess
 import tempfile
+import time
+import uuid
+from datetime import datetime
 
 import streamlit as st
 
 st.set_page_config(page_title="AVEVA Marine Leaf Export", page_icon="🛠️", layout="wide")
+
+# ===== 공용 로그/진단 (모니터링) =====
+PUB_DIR = r"C:\Users\Public\Documents"
+LOG_FILE = os.path.join(PUB_DIR, "leaf_log.txt")
+
+
+def applog(msg):
+    """웹/실행 동작을 공용 로그에 남긴다(모니터링 패널이 읽음). 실패해도 무시."""
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write("%s [web] %s\n" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg))
+    except OSError:
+        pass
+
+
+def finfo(path):
+    """파일 존재/수정시각/크기 요약."""
+    try:
+        if not os.path.isfile(path):
+            return {"exists": False}
+        stt = os.stat(path)
+        return {"exists": True, "mtime": datetime.fromtimestamp(stt.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                "size": stt.st_size}
+    except OSError as e:
+        return {"exists": False, "error": str(e)}
+
+
+def read_text(path, limit=8000):
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            return f.read()[-limit:]
+    except OSError as e:
+        return "(읽기 실패: %s)" % e
+
+
+def _rerun():
+    try:
+        st.rerun()
+    except Exception:
+        try:
+            st.experimental_rerun()
+        except Exception:
+            pass
 
 
 def find_cli():
@@ -64,15 +110,27 @@ def run_cli(args):
             if p:
                 cmd += ["--pid", str(p)]
     cmd += ["--result", tmp.name]
+    mode = args[0] if args else "?"
     try:
-        subprocess.run(cmd, capture_output=True, timeout=600,
-                       cwd=os.path.dirname(exe))  # exe 옆 attlib.dat 등 사용
-        with open(tmp.name, "r", encoding="utf-8") as f:
-            return json.load(f)
+        proc = subprocess.run(cmd, capture_output=True, timeout=600,
+                              cwd=os.path.dirname(exe))  # exe 옆 attlib.dat 등 사용
+        out = (proc.stdout or b"").decode("utf-8", "replace")
+        err = (proc.stderr or b"").decode("utf-8", "replace")
+        applog("cli %s rc=%s" % (mode, proc.returncode))
+        try:
+            with open(tmp.name, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            applog("cli %s 결과파싱실패 rc=%s: %s" % (mode, proc.returncode, e))
+            return {"ok": False,
+                    "error": "결과를 읽지 못함 (exit=%s): %s" % (proc.returncode, e),
+                    "stdout": out[-2000:], "stderr": err[-2000:], "exit": proc.returncode}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "시간 초과(10분). PDMS 세션이 응답하지 않습니다."}
+        applog("cli %s 시간초과" % mode)
+        return {"ok": False, "error": "시간 초과(10분). 세션이 응답하지 않습니다."}
     except Exception as e:
-        return {"ok": False, "error": "결과 파일을 읽지 못했습니다: %s" % e}
+        applog("cli %s 실행실패: %s" % (mode, e))
+        return {"ok": False, "error": "실행 실패: %s" % e}
     finally:
         try:
             os.unlink(tmp.name)
@@ -81,9 +139,6 @@ def run_cli(args):
 
 
 # ===== 애드인 파일 브리지 (AM 내부 API) =====
-import time
-import uuid
-
 ADDIN_DIR = r"C:\Users\Public\Documents"
 ADDIN_REQ = os.path.join(ADDIN_DIR, "leaf_req.txt")
 ADDIN_RESP = os.path.join(ADDIN_DIR, "leaf_resp.json")
@@ -109,6 +164,7 @@ def addin_call(cmd, timeout=60, **kwargs):
             f.write("\n".join(lines))
     except OSError as ex:
         return {"ok": False, "error": "요청 파일을 쓰지 못함: %s" % ex}
+    applog("addin %s 요청(id=%s)" % (cmd, rid[:8]))
     deadline = time.time() + timeout
     while time.time() < deadline:
         if os.path.isfile(ADDIN_RESP):
@@ -467,3 +523,65 @@ with st.expander("🛠️ 고급: AM 명령창 컨트롤 지정 (ADD 가 안 들
     if st.button("직접 입력값 저장"):
         ss["cmd_class"] = man.strip()
         st.success("저장됨: %s" % ss["cmd_class"])
+
+
+# ===== 🩺 모니터링 / 진단 (오류 대응) =====
+st.divider()
+with st.expander("🩺 모니터링 / 진단 (오류 대응)", expanded=False):
+    mc1, mc2 = st.columns([1, 3])
+    if mc1.button("🔄 새로고침", key="mon_refresh"):
+        _rerun()
+    auto = mc2.checkbox("자동 새로고침(5초)", value=False, key="mon_auto")
+
+    st.markdown("**핵심 상태**")
+    _cli = find_cli()
+    st.dataframe([
+        {"항목": "E3dLeafCli.exe", "값": _cli or "(없음)", "상태": "OK" if _cli else "없음"},
+        {"항목": "애드인", "값": ADDIN_STATUS, "상태": "연결됨" if addin_available() else "미연결"},
+        {"항목": "AM env_pid", "값": str(ss.get("am_env_pid")), "상태": ""},
+        {"항목": "AM 창 pid", "값": str(ss.get("am_win_pid")), "상태": ""},
+        {"항목": "PROJECT/USER/MDB",
+         "값": "%s / %s / %s" % (ss.get("f_project"), ss.get("f_user"), ss.get("f_mdb")), "상태": ""},
+        {"항목": "명령창 class", "값": ss.get("cmd_class", ""), "상태": ""},
+    ], use_container_width=True)
+
+    st.markdown("**브리지 / 세션 파일**")
+    _files = {"애드인 상태": ADDIN_STATUS, "요청(req)": ADDIN_REQ, "응답(resp)": ADDIN_RESP,
+              "세션(session)": SESSION_FILE, "로그(log)": LOG_FILE}
+    _frows = []
+    for _label, _p in _files.items():
+        _i = finfo(_p)
+        _frows.append({"파일": _label, "존재": "O" if _i.get("exists") else "X",
+                       "수정시각": _i.get("mtime", "-"), "크기": _i.get("size", "-"), "경로": _p})
+    st.dataframe(_frows, use_container_width=True)
+
+    st.markdown("**최근 로그**")
+    if os.path.isfile(LOG_FILE):
+        st.code(read_text(LOG_FILE, 6000), language="text")
+    else:
+        st.caption("로그 없음(아직 동작 기록 없음). CLI/애드인/웹 동작 시 기록됩니다.")
+    if st.button("로그 비우기", key="mon_clearlog"):
+        try:
+            open(LOG_FILE, "w").close()
+            st.success("로그 비움")
+        except OSError as _e:
+            st.error(str(_e))
+
+    st.markdown("**자가 진단 (원시 결과)**")
+    sc1, sc2 = st.columns(2)
+    if sc1.button("CLI list-am 실행", key="mon_selftest_cli"):
+        st.json(run_cli(["list-am"]))
+    if sc2.button("애드인 session 호출", key="mon_selftest_addin"):
+        st.json(addin_call("session", timeout=15))
+
+    with st.expander("응답(resp)·세션 파일 내용"):
+        if finfo(ADDIN_RESP).get("exists"):
+            st.caption("leaf_resp.json")
+            st.code(read_text(ADDIN_RESP, 4000), language="json")
+        if finfo(SESSION_FILE).get("exists"):
+            st.caption("am_session.txt")
+            st.code(read_text(SESSION_FILE, 2000), language="text")
+
+    if auto:
+        time.sleep(5)
+        _rerun()

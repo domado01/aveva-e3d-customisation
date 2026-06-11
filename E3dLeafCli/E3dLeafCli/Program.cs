@@ -465,6 +465,14 @@ namespace E3dLeafCli
         private static void Write(string path, string json)
         {
             try { File.WriteAllText(path, json, new UTF8Encoding(false)); } catch { }
+            // 공용 로그(모니터링용) 에도 결과 요약 append
+            try
+            {
+                string log = @"C:\Users\Public\Documents\leaf_log.txt";
+                string body = json.Length > 500 ? json.Substring(0, 500) + "…" : json;
+                File.AppendAllText(log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " [cli] " + body + Environment.NewLine, new UTF8Encoding(false));
+            }
+            catch { }
         }
 
         private static string J(string s)

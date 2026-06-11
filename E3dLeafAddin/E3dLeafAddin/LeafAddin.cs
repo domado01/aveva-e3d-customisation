@@ -38,6 +38,7 @@ namespace E3dLeafAddin
             _timer.Tick += OnTick;
             _timer.Start();
             SafeWrite(StatusFile, "E3dLeafAddin started " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            Log("[addin] started");
         }
 
         public void Stop()
@@ -67,11 +68,20 @@ namespace E3dLeafAddin
                 else resp = "{\"id\":" + J(id) + ",\"ok\":false,\"error\":\"unknown cmd\"}";
 
                 SafeWrite(RespFile, resp);
+                Log("[addin] cmd=" + cmd + " -> " + (resp.Length > 300 ? resp.Substring(0, 300) + "…" : resp));
             }
             catch (Exception ex)
             {
                 SafeWrite(RespFile, "{\"ok\":false,\"error\":" + J(ex.GetType().Name + ": " + ex.Message) + "}");
+                Log("[addin] ERROR " + ex.GetType().Name + ": " + ex.Message);
             }
+        }
+
+        private static readonly string LogFile = Path.Combine(Dir, "leaf_log.txt");
+        private static void Log(string msg)
+        {
+            try { File.AppendAllText(LogFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + msg + Environment.NewLine, new UTF8Encoding(false)); }
+            catch { }
         }
 
         // ---- session: 현재 세션 정보 ----
