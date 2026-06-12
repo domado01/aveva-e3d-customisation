@@ -574,7 +574,7 @@ with st.expander("🩺 모니터링 / 진단 (오류 대응)", expanded=False):
     if sc2.button("애드인 session 호출", key="mon_selftest_addin"):
         st.json(addin_call("session", timeout=15))
 
-    with st.expander("응답(resp)·세션 파일 내용"):
+    if st.checkbox("응답(resp)·세션 파일 내용 보기", key="mon_showfiles"):
         if finfo(ADDIN_RESP).get("exists"):
             st.caption("leaf_resp.json")
             st.code(read_text(ADDIN_RESP, 4000), language="json")
